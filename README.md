@@ -2,27 +2,30 @@
 
 Structured, mobile-first documentation forms for physicians in the emergency department (ED).
 
-PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored in a central repository. In a separate dashboard it can be reviewed and exported as an **HL7 FHIR R4 International Patient Summary (IPS)** with standard terminologies, or turned into **free-text reports** for import into the hospital information system (HIS).
+PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and exported as an **HL7 FHIR R4 International Patient Summary (IPS)** with standard terminologies, or turned into **free-text reports** for import into the hospital information system (HIS).
 
 > **Status:** Early planning. A local-only prototype (formerly *CaseFlow*) is live at [caseflow.christophriepe.com](https://caseflow.christophriepe.com). It stores all data in the browser and has no backend yet.
+
+> **This repository** is the shared monorepo for the whole project: frontend (`apps/web`), backend (`apps/api`) and shared packages (`packages/`). See [Repository structure](#repository-structure).
 
 ---
 
 ## Workflow
 
-1. **At the bedside:** The physician opens a PulseNote form on their phone and picks the template that fits the patient (e.g. internal medicine, surgery, respiratory).
+1. **At the bedside:** The physician signs in to PulseNote on their phone, opens a new case and picks the template that fits the patient (e.g. internal medicine, surgery, respiratory).
 2. **Documentation:** They work through the three form steps: patient → history → examination.
-3. **Save:** On save, the data goes to the central PulseNote backend and is stored there. The phone's part ends here.
-4. **Review & export in the dashboard (any time):**
+3. **Save:** On save, the data goes to the central PulseNote backend and is stored there.
+4. **Review, edit & export on the PC (any time):** The physician signs in to the same web app on a desktop PC with the same credentials and opens the dashboard.
    - **View:** open and review saved cases.
+   - **Edit:** complete or correct a case.
    - **Free text:** generate a structured report and copy it into the HIS.
    - **FHIR:** export an IPS document (FHIR R4), coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses.
 5. **Analytics (planned):** statistics across all cases in the dashboard.
 
 ```mermaid
 flowchart LR
-    A[Physician's phone<br/>form wizard] -- save --> B[PulseNote backend<br/>central data repository]
-    B --> E[Dashboard<br/>view cases]
+    A[PulseNote on the phone<br/>case form] -- save --> B[PulseNote backend<br/>central data repository]
+    B <-- load / save --> E[PulseNote on the PC<br/>dashboard: view, edit]
     E -- export --> C[IPS document, FHIR R4<br/>SNOMED CT, LOINC, UCUM]
     E -- export --> D[Free-text report<br/>copy into HIS]
     E -. planned .-> F[Analytics]
@@ -32,9 +35,16 @@ flowchart LR
 
 ## Features
 
-### Form templates (phone)
+PulseNote is **one web app with one login** and two views:
 
-Each template is a three-step wizard. After the last step the physician saves, and the data is sent to the backend. Nothing is viewed or exported on the phone.
+- the **case form**, optimized for phones
+- the **dashboard**, optimized for desktop monitors
+
+Both views use the same form components and field definitions. A case entered on the phone looks and validates the same way when it is edited on the PC.
+
+### Case form (optimized for phones)
+
+Each template is a three-step wizard. After the last step the physician saves, and the data is sent to the backend. On the PC, the same fields are shown on a single page for editing.
 
 | Step                     | Contents (example: General)                                                                                                                                                                                                                              |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,11 +60,12 @@ Templates available in the prototype:
 
 Planned: orthopedics, neurology, pediatrics, and more.
 
-### Dashboard
+### Dashboard (optimized for desktop)
 
-Saved cases are viewed and exported in the dashboard, a web app on top of the data repository, not on the physician's phone.
+Saved cases are reviewed, edited and exported in the dashboard. It works on a phone, but it is designed for monitors.
 
 - **Case view**: browse and open saved cases
+- **Editing**: complete or correct a case using the same fields as the case form
 - **Free-text export**: generate the structured report and copy it into the HIS
 - **IPS export**: a FHIR R4 document bundle following the International Patient Summary implementation guide (see [FHIR &amp; IPS](#fhir--ips))
 - **Analytics (planned)**: e.g. case volumes, symptom distribution, documentation completeness
@@ -65,12 +76,12 @@ Saved cases are viewed and exported in the dashboard, a web app on top of the da
 
 The team has four people. The four areas follow the course's team assessment criteria, so each graded criterion has exactly one owner. Owning an area means making its decisions and keeping it in shape, not working on it alone.
 
-| # | Area                                     | Assessment criterion    | Owner       | Responsibilities                                                                                                                                                                                         |
-| - | ---------------------------------------- | ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 | **Medical domain & use case**      | Use case and user focus | Christoph   | Clinical problem and user needs, clinical content of the forms (fields, answer options, templates), free-text report content and wording, test cases and sample patients, dashboard KPIs                  |
-| 2 | **Backend & FHIR / IPS modelling** | FHIR / IPS modelling    | Jeremias??? | API, data model and storage, FHIR resources and IPS document bundle, validation against the IPS IG, free-text generation in code, deployment                                                             |
-| 3 | **Terminologies**                  | Terminologies           | Heinrich??? | SNOMED CT, LOINC, UCUM, ICD-10-GM, ATC; ValueSets for every answer option; ConceptMaps; code bindings in the FHIR resources; IPS "absent/unknown" codes                                                  |
-| 4 | **Frontend & prototype**           | Prototype and demo      | Chad???     | React web app, mobile UX and usability, form wizard, dashboard UI, demo build                                                                                                                            |
+| # | Area                                     | Assessment criterion    | Owner       | Responsibilities                                                                                                                                                                         |
+| - | ---------------------------------------- | ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 | **Medical domain & use case**      | Use case and user focus | Christoph   | Clinical problem and user needs, clinical content of the forms (fields, answer options, templates), free-text report content and wording, test cases and sample patients, dashboard KPIs |
+| 2 | **Backend & FHIR / IPS modelling** | FHIR / IPS modelling    | Jeremias??? | API, data model and storage, FHIR resources and IPS document bundle, validation against the IPS IG, free-text generation in code, deployment                                             |
+| 3 | **Terminologies**                  | Terminologies           | Heinrich??? | SNOMED CT, LOINC, UCUM, ICD-10-GM, ATC; ValueSets for every answer option; ConceptMaps; code bindings in the FHIR resources; IPS "absent/unknown" codes                                  |
+| 4 | **Frontend & prototype**           | Prototype and demo      | Chad???     | React web app (case form and dashboard), login UI, mobile and desktop UX, demo build                                                                                                     |
 
 **Load balancing:**
 
@@ -91,7 +102,7 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 
 ### Working agreements
 
-- Pull requests that touch another area are **reviewed by that area's owner**.
+- Pull requests that touch another area are **reviewed by that area's owner**. [`.github/CODEOWNERS`](.github/CODEOWNERS) maps each folder to its owners, so GitHub requests the right reviewers automatically.
 - The **final presentation** is given by the whole team together. Each person mainly presents their own area.
 - The **form definition comes first**: every area depends on it, so areas 1 and 3 define fields *with codes* together, before parallel work starts.
 - Architecture decisions (e.g. backend option A vs. B) are made by the whole team and recorded as short decision records in `docs/decisions/`.
@@ -102,9 +113,41 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 
 | Layer    | Technology                                                                               |
 | -------- | ---------------------------------------------------------------------------------------- |
-| Frontend | React (mobile-first web app)                                                             |
+| Frontend | One React web app: case form (mobile-first) and dashboard (desktop), shared login        |
 | Backend  | **To be decided** (see options below)                                              |
 | Hosting  | **Cloud (EU, GDPR-compliant)** preferred; on-premise as an alternative (see below) |
+
+### Repository structure
+
+The project is a single repository (monorepo). Everything that runs and is deployed lives in `apps/`. Libraries shared by several apps live in `packages/`.
+
+```
+pulsenote/
+├── apps/
+│   ├── web/                    # React web app: case form + dashboard (area 4)
+│   │   └── src/
+│   │       ├── features/
+│   │       │   ├── case-form/  # three-step wizard (phone) / single page (PC)
+│   │       │   └── dashboard/  # case list, editing, export, analytics
+│   │       ├── auth/           # shared login
+│   │       └── components/     # shared UI building blocks
+│   └── api/                    # backend (area 2)
+│       ├── src/
+│       │   ├── routes/         # endpoints: save, load, export cases
+│       │   ├── auth/           # authentication, roles
+│       │   ├── db/             # database access
+│       │   └── export/         # IPS bundle and free-text generation
+│       └── migrations/         # database schema
+├── packages/
+│   ├── form-definitions/       # fields, answer options and codes (areas 1 + 3)
+│   ├── terminology/            # ValueSets, ConceptMaps (area 3)
+│   └── fhir-mapping/           # form data → IPS resources (area 2)
+├── docs/
+│   └── decisions/              # architecture decision records
+└── README.md
+```
+
+The database is not part of the repository. Locally it will run as a Docker container, later at the hosting provider. Only its schema (`apps/api/migrations/`) lives here.
 
 ### Backend options
 
@@ -230,8 +273,8 @@ PulseNote processes health data, a special category under Art. 9 GDPR. Minimum r
 - [ ] Decide hosting and get data protection approval
 - [ ] Authentication and user management
 - [ ] Central backend with save and load
-- [ ] Phone forms reduced to three steps, saving to the backend
-- [ ] Dashboard with case view
+- [ ] Case form with three steps, saving to the backend
+- [ ] Dashboard with case view and editing
 - [ ] Free-text export in the dashboard
 - [ ] IPS export (FHIR R4) in the dashboard, validated against the IPS implementation guide
 - [ ] More specialty templates (orthopedics, neurology, pediatrics, …)
@@ -245,7 +288,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. Minimum r
 - **Patient identification:** How are cases linked to the HIS (case number, patient ID, barcode scan)?
 - **Offline support:** Do forms need to work without a connection (e.g. poor reception in the ED) and sync later?
 - **Multi-tenancy:** One instance per hospital, or one shared instance for several hospitals?
-- **Editing & sign-off:** Can saved forms be edited later? Is there a final sign-off or a version history?
+- **Sign-off & history:** Saved cases can be edited on the PC. Is there a final sign-off after which a case is locked, and do we need a version history of edits?
 - **Language:** German only, or multilingual forms?
 - **Data outside the IPS:** Where do exam findings and ED-specific details go in the FHIR export (see [Outside the IPS scope](#outside-the-ips-scope))?
 
@@ -253,7 +296,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. Minimum r
 
 ## Getting started
 
-_Not yet available. Setup instructions will follow once the project skeleton is in place._
+_Not yet available. The folder skeleton is in place (see [Repository structure](#repository-structure)); setup instructions will follow once the tech stack is decided._
 
 ## License
 

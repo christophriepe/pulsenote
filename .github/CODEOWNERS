@@ -1,0 +1,32 @@
+# CODEOWNERS: who reviews changes to which part of the repository.
+# GitHub automatically requests a review from the listed owners on every pull request.
+#
+# The last matching pattern wins, so the catch-all rule comes first.
+# Each area folder has one owner. Shared files list everyone involved.
+#
+# TODO: Replace the placeholders with real GitHub usernames:
+#   @TODO-area1-medical      Area 1: Medical domain & use case
+#   @TODO-area2-backend      Area 2: Backend & FHIR / IPS modelling
+#   @TODO-area3-terminology  Area 3: Terminologies
+#   @TODO-area4-frontend     Area 4: Frontend & prototype
+
+# Default: anything not matched below
+*                             @christophriepe @TODO-area2-backend @TODO-area3-terminology @TODO-area4-frontend
+
+# Area 1: Medical domain & use case
+/packages/form-definitions/   @christophriepe
+
+# Area 2: Backend & FHIR / IPS modelling
+/apps/api/                    @TODO-area2-backend
+/packages/fhir-mapping/       @TODO-area2-backend
+
+# Area 3: Terminologies
+/packages/terminology/        @TODO-area3-terminology
+
+# Area 4: Frontend & prototype
+/apps/web/                    @TODO-area4-frontend
+
+# Whole team: project docs, decisions and repo settings
+/README.md                    @christophriepe @TODO-area2-backend @TODO-area3-terminology @TODO-area4-frontend
+/docs/                        @christophriepe @TODO-area2-backend @TODO-area3-terminology @TODO-area4-frontend
+/.github/                     @christophriepe @TODO-area2-backend @TODO-area3-terminology @TODO-area4-frontend
