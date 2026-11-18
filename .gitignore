@@ -1,0 +1,240 @@
+# =========================================================
+# Dependencies
+# =========================================================
+node_modules/
+jspm_packages/
+bower_components/
+web_modules/
+.pnp
+.pnp.*
+.pnp.js
+.pnp.cjs
+.pnp.loader.mjs
+
+# Yarn (Berry) – keep plugins/releases/sdks/versions if you commit them
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.yarn-integrity
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log*
+
+# =========================================================
+# Build output
+# =========================================================
+dist/
+dist-ssr/
+build/
+out/
+.output/
+*.local
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Remix / React Router
+.cache/
+.react-router/
+public/build/
+
+# Gatsby
+.gatsby/
+
+# Vite
+.vite/
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
+
+# Parcel
+.parcel-cache/
+
+# Webpack / Rspack / Turbopack
+.webpack/
+.rspack/
+.turbo/
+
+# Storybook
+storybook-static/
+build-storybook.log
+
+# Docusaurus
+.docusaurus/
+
+# Expo / React Native (falls später ergänzt)
+.expo/
+.expo-shared/
+web-build/
+
+# TypeScript
+*.tsbuildinfo
+.tsbuildinfo
+
+# =========================================================
+# Environment variables & secrets
+# =========================================================
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+.secrets
+
+# =========================================================
+# Testing & coverage
+# =========================================================
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+test-results/
+
+# Playwright
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
+# Jest
+.jest-cache/
+
+# =========================================================
+# Caches & tooling
+# =========================================================
+.eslintcache
+.stylelintcache
+.prettiercache
+.npm/
+.node_repl_history
+.sass-cache/
+.temp/
+.tmp/
+tmp/
+temp/
+*.tgz
+
+# Sentry
+.sentryclirc
+
+# Serverless / deploy platforms
+.vercel/
+.netlify/
+.firebase/
+.amplify/
+amplify/#current-cloud-backend
+amplify/.config/local-*
+.serverless/
+.wrangler/
+.dev.vars
+
+# Docker
+docker-compose.override.yml
+
+# =========================================================
+# Logs
+# =========================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports
+*.heapsnapshot
+*.cpuprofile
+
+# =========================================================
+# Editors & IDEs
+# =========================================================
+# VS Code – keep shared settings/extensions recommendations
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim / Emacs / Sublime
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+*.sublime-project
+*.sublime-workspace
+
+# Fleet / Zed / Cursor
+.fleet/
+.zed/
+
+# =========================================================
+# Operating systems
+# =========================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# =========================================================
+# AI assistants / local tooling
+# =========================================================
+.claude/settings.local.json
+.claude/.cc-writes/
+graphify-out/
