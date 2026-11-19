@@ -26,11 +26,11 @@ Forms are defined as **FHIR `Questionnaire`s**, as data rather than code. Each c
   - [FHIR as the shared data model](#fhir-as-the-shared-data-model)
   - [API](#api)
   - [Repository structure](#repository-structure)
-  - [Hosting](#hosting)
 - [FHIR data model](#fhir-data-model)
   - [IPS document](#ips-document)
   - [Vital signs (LOINC + UCUM)](#vital-signs-loinc--ucum)
   - [Terminologies](#terminologies)
+- [Hosting](#hosting)
 - [Data protection & security](#data-protection--security)
 - [Roadmap](#roadmap)
 - [Open questions](#open-questions)
@@ -43,24 +43,34 @@ Forms are defined as **FHIR `Questionnaire`s**, as data rather than code. Each c
 
 1. **At the bedside:** The physician signs in to PulseNote on their phone, opens a new case and picks the template that fits the patient (e.g. internal medicine, surgery, respiratory).
 2. **Documentation:** They work through the three form steps: patient → history → examination. Every input is saved locally on the phone right away, so nothing is lost if the app is closed or the connection drops.
-3. **Send:** When the case is complete, the physician sends it to the central PulseNote backend. Without a connection, it stays on the phone as an unsent draft until it can be sent.
-4. **Review, edit & export on the PC (any time):** The physician signs in to the same web app on a desktop PC with the same credentials and opens the dashboard.
-   - **View:** open and review saved cases.
-   - **Edit:** complete or correct a case.
-   - **Free text:** generate a structured report and copy it into the HIS.
-   - **FHIR:** export the case as FHIR R4 resources for import into the HIS, coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses. On request, also as an IPS document for further treatment.
+3. **Store:** When the case is complete, the phone's web app creates it on the central PulseNote backend. Without a connection, it stays on the phone as an unsent draft until it can be sent. Later edits on the phone update the case on the backend _(optional)_.
+4. **Review on the desktop (any time):** The physician signs in to the same web app on a desktop PC with the same credentials.
+   - **Load & view:** open and review cases from the backend.
+   - **Update:** complete or correct a case on the backend _(optional)_.
+   - **Free text:** the desktop web app requests a free-text report for a case from the backend and copies it straight into the HIS.
+   - **Patient document:** either web app can request the case as a patient document from the backend's export endpoint: FHIR R4 resources coded with SNOMED CT, LOINC and UCUM (plus ICD-10-GM for diagnoses), or an IPS document. In the future this file could be imported into the HIS, where the HIS only supports file import.
+   - **Direct access:** the backend offers the same export endpoints to other systems, so an HIS could also fetch the data directly, without the web app.
 5. **Hand-over to the HIS:** Once the case is in the HIS, the HIS entry is the official record. PulseNote deletes the case after a defined retention period.
-6. **Analytics (planned):** statistics across cases in the dashboard, based on pseudonymized or aggregated data.
+6. **Analytics (planned):** statistics across cases, by accessing the backend directly, based on pseudonymized or aggregated data.
 
 ```mermaid
 flowchart LR
-    A[PulseNote on the phone<br/>case form, local drafts] -- send --> B[PulseNote backend<br/>temporary case store]
-    B <-- load / save --> E[PulseNote on the PC<br/>dashboard: view, edit]
-    E -- export --> C[FHIR R4 resources<br/>IPS-aligned, optional IPS document]
-    E -- export --> D[Free-text report]
-    C -- import --> H[HIS<br/>official patient record]
-    D -- copy --> H
-    E -. planned .-> F[Analytics]
+    subgraph PN [PulseNote]
+        direction LR
+        P[Web app on the phone]
+        B[Backend<br/>case store, provide api endpoints]
+        D[Web app on the desktop]
+    end
+    F[Analytics]
+    H[HIS<br/>official patient record]
+
+    P -- "create / update case" --> B
+    B ~~~ D
+    D -- "load / update case<br/>get free text<br/>get patient FHIR document" --> B
+    D -- "copy free text" --> H
+    D -. "import patient FHIR document" .-> H
+    B -. "export endpoints (future)" .-> H
+    F -. "direct access (planned)" .-> B
 ```
 
 ---
@@ -129,7 +139,6 @@ Saved cases are reviewed, edited and exported in the dashboard. It works on a ph
 - **Editing**: complete or correct a case using the same fields as the case form
 - **Free-text export**: generate the structured report and copy it into the HIS
 - **FHIR export**: the case as FHIR R4 resources, optionally as an IPS document (see [FHIR data model](#fhir-data-model))
-- **Analytics (planned)**: e.g. case volumes, symptom distribution, documentation completeness
 
 ---
 
@@ -205,19 +214,15 @@ Form versioning: each `QuestionnaireResponse` refers to the exact `Questionnaire
 
 ### API
 
-First draft. The binding definition is the OpenAPI spec that FastAPI generates automatically (served at `/docs`).
+Draft. FastAPI generates the full OpenAPI spec at `/docs`.
 
-| Method & path                     | Purpose                                                                                                   |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET /questionnaires`             | List the available form templates (`Questionnaire`s)                                                    |
-| `GET /questionnaires/{id}`        | Fetch one form template                                                                                   |
-| `GET /cases`                      | List cases (e.g. the physician's cases of the current shift)                                              |
-| `PUT /cases/{id}`                 | Create or update a case (`QuestionnaireResponse`). The ID comes from the phone, so sending again never creates a duplicate. |
-| `GET /cases/{id}`                 | Fetch a case                                                                                              |
-| `DELETE /cases/{id}`              | Delete a case                                                                                             |
-| `GET /cases/{id}/fhir`            | Export the case as a FHIR R4 `Bundle` of the extracted, IPS-aligned resources                            |
-| `GET /cases/{id}/ips`             | Export the case as an IPS document                                                                        |
-| `GET /cases/{id}/text`            | Generate the free-text report for the HIS                                                                 |
+| Endpoint                 | Purpose                        |
+| ------------------------ | ------------------------------ |
+| `GET /cases`             | List cases                     |
+| `GET /cases/{id}`        | Load a case                    |
+| `PUT /cases/{id}`        | Create or update a case        |
+| `GET /cases/{id}/text`   | Get the free text              |
+| `GET /cases/{id}/fhir`   | Get the patient FHIR document  |
 
 ### Repository structure
 
@@ -227,22 +232,7 @@ The project is a single repository (monorepo). Everything that runs and is deplo
 pulsenote/
 ├── apps/
 │   ├── web/                    # web app in HTML, CSS, JS: case form + dashboard (area 4)
-│   │   ├── index.html
-│   │   ├── css/
-│   │   ├── js/
-│   │   │   ├── case-form/      # three-step wizard (phone) / single page (PC), local drafts
-│   │   │   ├── dashboard/      # case list, editing, export, analytics
-│   │   │   └── auth/           # shared login
-│   │   └── service-worker.js   # offline caching
-│   └── api/                    # FastAPI backend (area 2)
-│       ├── app/
-│       │   ├── main.py
-│       │   ├── routes/         # endpoints: cases, questionnaires, export
-│       │   ├── auth/           # authentication, roles
-│       │   ├── storage/        # reading and writing the JSON case files
-│       │   └── export/         # FHIR / IPS export and free-text generation
-│       ├── data/               # JSON case files (git-ignored, Docker volume)
-│       └── Dockerfile
+│   └── api/                    # FastAPI backend in Docker (area 2)
 ├── packages/
 │   ├── form-definitions/       # FHIR Questionnaires (area 1, codes with area 3)
 │   ├── terminology/            # ValueSets, ConceptMaps (area 3)
@@ -253,37 +243,13 @@ pulsenote/
 └── README.md
 ```
 
-Case data is not part of the repository. The backend writes it as JSON files to `apps/api/data/`, which is mounted as a Docker volume and ignored by git.
-
-### Hosting
-
-The prototype is only run for the presentation, either **locally** (`docker compose up`) or on a **private personal server**. It is used with **synthetic patients only**, never with real patient data.
-
-#### Outlook: production in a hospital
-
-A real deployment would run **on-premise in the hospital intranet**, so patient data never leaves the hospital network. A cloud would only be an option for development and demos with synthetic data.
-
-|                              | **On-premise (hospital intranet)**                                                  | **Cloud (EU)**                                                                                                                                                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Approval**                 | ➕ Patient data stays in the hospital network, so approval is much easier           | ➖ Needs data protection officer approval, a data processing agreement (AVV), and possibly a cloud attestation (e.g. BSI C5); German hospital and professional secrecy rules (§ 203 StGB, state hospital laws) may restrict outsourcing |
-| **HIS integration**          | ➕ Close to the HIS; direct integration possible later                              | ➖ Needs a secure link into the hospital network                                                                                                                                                                                   |
-| **Login**                    | ➕ Can use existing hospital accounts                                               | ➖ Needs a connection to the hospital's directory, or separate accounts                                                                                                                                                            |
-| **Access from phones**       | ➖ Needs hospital Wi-Fi and hospital-managed devices                                 | ➕ Reachable over the internet (with strong auth)                                                                                                                                                                                  |
-| **Time to first deployment** | ➖ Depends on hospital IT processes and resources                                    | ➕ Fast; managed database, backups, TLS                                                                                                                                                                                            |
-| **Operations & updates**     | ➖ Per-site installation and updates                                                 | ➕ Central; one deployment for all users                                                                                                                                                                                           |
-| **Scalability / multi-site** | ➖ Every site runs its own instance                                                   | ➕ Easy to serve several hospitals                                                                                                                                                                                                 |
-| **Costs**                    | ➖ Hardware and IT staff time at the hospital                                        | ➖ Ongoing hosting costs                                                                                                                                                                                                           |
-
-**Conditions for on-premise operation:**
-
-- Run officially by the hospital IT, not as a privately operated server in the hospital network
-- Listed in the hospital's record of processing activities, with a data protection impact assessment (DPIA)
-- Used on hospital-managed devices (MDM) with device encryption and screen lock; only unsent drafts are stored on the phone, temporarily
-- JSON file storage replaced by a proper database or FHIR server
+Case data is not part of the repository. The backend writes it as JSON files to a Docker volume that is ignored by git.
 
 ---
 
 ## FHIR data model
+
+> New to FHIR or the IPS? Start with the [FHIR & IPS guide](docs/fhir-ips-guide.md): glossary, where to look up IPS profiles and codes, and the mapping table.
 
 PulseNote uses FHIR R4 on two layers: **capture** with `Questionnaire` / `QuestionnaireResponse`, and **clinical data** with standard resources. The details, including the extraction table and the output targets, are in [`packages/form-definitions`](packages/form-definitions/README.md).
 
@@ -363,6 +329,34 @@ Every answer option in the `Questionnaire`s is backed by a **ValueSet**, so the 
 
 ---
 
+## Hosting
+
+The prototype is only run for the presentation, either **locally** (`docker compose up`) or on a **private personal server**. It is used with **synthetic patients only**, never with real patient data.
+
+### Outlook: production in a hospital
+
+A real deployment would run **on-premise in the hospital intranet**, so patient data never leaves the hospital network. A cloud would only be an option for development and demos with synthetic data.
+
+|                              | **On-premise (hospital intranet)**                                                  | **Cloud (EU)**                                                                                                                                                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Approval**                 | ➕ Patient data stays in the hospital network, so approval is much easier           | ➖ Needs data protection officer approval, a data processing agreement (AVV), and possibly a cloud attestation (e.g. BSI C5); German hospital and professional secrecy rules (§ 203 StGB, state hospital laws) may restrict outsourcing |
+| **HIS integration**          | ➕ Close to the HIS; direct integration possible later                              | ➖ Needs a secure link into the hospital network                                                                                                                                                                                   |
+| **Login**                    | ➕ Can use existing hospital accounts                                               | ➖ Needs a connection to the hospital's directory, or separate accounts                                                                                                                                                            |
+| **Access from phones**       | ➖ Needs hospital Wi-Fi and hospital-managed devices                                 | ➕ Reachable over the internet (with strong auth)                                                                                                                                                                                  |
+| **Time to first deployment** | ➖ Depends on hospital IT processes and resources                                    | ➕ Fast; managed database, backups, TLS                                                                                                                                                                                            |
+| **Operations & updates**     | ➖ Per-site installation and updates                                                 | ➕ Central; one deployment for all users                                                                                                                                                                                           |
+| **Scalability / multi-site** | ➖ Every site runs its own instance                                                   | ➕ Easy to serve several hospitals                                                                                                                                                                                                 |
+| **Costs**                    | ➖ Hardware and IT staff time at the hospital                                        | ➖ Ongoing hosting costs                                                                                                                                                                                                           |
+
+**Conditions for on-premise operation:**
+
+- Run officially by the hospital IT, not as a privately operated server in the hospital network
+- Listed in the hospital's record of processing activities, with a data protection impact assessment (DPIA)
+- Used on hospital-managed devices (MDM) with device encryption and screen lock; only unsent drafts are stored on the phone, temporarily
+- JSON file storage replaced by a proper database or FHIR server
+
+---
+
 ## Data protection & security
 
 PulseNote processes health data, a special category under Art. 9 GDPR. The legal basis is treatment by the treating physicians (Art. 9(2)(h) GDPR together with state hospital law).
@@ -405,7 +399,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 - [ ] Extraction from `QuestionnaireResponse` to IPS-aligned FHIR resources
 - [ ] FHIR export in the dashboard, including an IPS document validated against the IPS implementation guide
 - [ ] More specialty templates (orthopedics, neurology, pediatrics, …)
-- [ ] Dashboard analytics
+- [ ] Analytics with direct access to the backend (e.g. case volumes, symptom distribution, documentation completeness)
 - [ ] Outlook: ISiK interface to the HIS; other settings (ward round, practice)
 
 ---
