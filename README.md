@@ -12,6 +12,31 @@ Forms are defined as **FHIR `Questionnaire`s**, as data rather than code. Each c
 
 > **This repository** is the shared monorepo for the whole project: frontend (`apps/web`), backend (`apps/api`) and shared packages (`packages/`). See [Repository structure](#repository-structure).
 
+## Outline
+
+- [Workflow](#workflow)
+- [Features](#features)
+  - [Case form (optimized for phones)](#case-form-optimized-for-phones)
+  - [Offline use & local drafts](#offline-use--local-drafts)
+  - [Dashboard (optimized for desktop)](#dashboard-optimized-for-desktop)
+- [Team & responsibilities](#team--responsibilities)
+  - [Shared contracts](#shared-contracts)
+  - [Working agreements](#working-agreements)
+- [Architecture](#architecture)
+  - [FHIR as the shared data model](#fhir-as-the-shared-data-model)
+  - [API](#api)
+  - [Repository structure](#repository-structure)
+  - [Hosting](#hosting)
+- [FHIR data model](#fhir-data-model)
+  - [IPS document](#ips-document)
+  - [Vital signs (LOINC + UCUM)](#vital-signs-loinc--ucum)
+  - [Terminologies](#terminologies)
+- [Data protection & security](#data-protection--security)
+- [Roadmap](#roadmap)
+- [Open questions](#open-questions)
+- [Getting started](#getting-started)
+- [License](#license)
+
 ---
 
 ## Workflow
@@ -82,7 +107,7 @@ Connectivity in the ED is unreliable, and losing ten minutes of history taking i
 
 | What                  | Offline | How                                                                                     |
 | --------------------- | ------- | --------------------------------------------------------------------------------------- |
-| Open the app          | ✅      | A service worker caches the app (e.g. via `vite-plugin-pwa`). The first start needs a connection. |
+| Open the app          | ✅      | A service worker (plain JavaScript) caches the app. The first start needs a connection. |
 | Fill in a case        | ✅      | Form definitions ship with the app                                                       |
 | Save drafts           | ✅      | Autosave after every input to IndexedDB in the browser                                   |
 | Send a case           | ❌      | Needs a connection; the draft stays on the phone until then                              |
@@ -94,7 +119,7 @@ Connectivity in the ED is unreliable, and losing ten minutes of history taking i
 - **App updates:** New versions arrive on the next start with a connection. The backend must therefore accept cases built with older form versions.
 - **No duplicates:** Each case gets its ID on the phone, so sending it again after a dropped connection does not create a second copy.
 - **iOS:** Safari and the home-screen app have separate storage. Physicians always use the installed home-screen app.
-- **Native app:** Not needed. If native features are needed later (secure system storage, wristband barcode scanning, distribution via the hospital's device management), the same React app can be wrapped with [Capacitor](https://capacitorjs.com/).
+- **Native app:** Not needed. If native features are needed later (secure system storage, wristband barcode scanning, distribution via the hospital's device management), the same web app can be wrapped with [Capacitor](https://capacitorjs.com/).
 
 ### Dashboard (optimized for desktop)
 
@@ -117,7 +142,7 @@ The team has four people. The four areas follow the course's team assessment cri
 | 1 | **Medical domain & use case**      | Use case and user focus | Christoph   | Clinical problem and user needs, clinical content of the forms (fields, answer options, templates), free-text report content and wording, test cases and sample patients, dashboard KPIs |
 | 2 | **Backend & FHIR / IPS modelling** | FHIR / IPS modelling    | Jeremias??? | API, data model and storage, extraction from `QuestionnaireResponse` to FHIR resources, IPS document, validation, free-text generation in code, deployment |
 | 3 | **Terminologies**                  | Terminologies           | Heinrich??? | SNOMED CT, LOINC, UCUM, ICD-10-GM, ATC; ValueSets for every answer option; ConceptMaps; code bindings in the FHIR resources; IPS "absent/unknown" codes                                  |
-| 4 | **Frontend & prototype**           | Prototype and demo      | Chad???     | React web app (case form and dashboard), login UI, mobile and desktop UX, demo build                                                                                                     |
+| 4 | **Frontend & prototype**           | Prototype and demo      | Chad???     | Web app in HTML, CSS and JavaScript (case form and dashboard), login UI, mobile and desktop UX, demo build                                                                                                     |
 
 **Load balancing:**
 
@@ -133,7 +158,7 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 | **Form definition**: fields, types, answer options and their codes             | 1 ↔ 3 ↔ 4 ↔ 2 | FHIR `Questionnaire` in [`packages/form-definitions`](packages/form-definitions/README.md) |
 | **Terminology bindings**: which code and ValueSet goes into which FHIR element | 3 ↔ 2           | Mapping table in the repo                                   |
 | **Extraction mapping**: which answer becomes which FHIR resource and IPS section | 2 ↔ 1 ↔ 3      | Mapping table in the repo (see [FHIR data model](#fhir-data-model)) |
-| **API**: endpoints for saving, loading and exporting                           | 4 ↔ 2           | OpenAPI spec                                                |
+| **API**: endpoints for creating, updating, fetching and exporting cases, incl. free text | 4 ↔ 2   | OpenAPI spec, generated by FastAPI (see [API](#api))        |
 | **Free-text report**: structure and wording of the HIS text                    | 1 ↔ 2           | Template with example output                                |
 
 ### Working agreements
@@ -141,81 +166,102 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 - Pull requests that touch another area are **reviewed by that area's owner**. [`.github/CODEOWNERS`](.github/CODEOWNERS) maps each folder to its owners, so GitHub requests the right reviewers automatically.
 - The **final presentation** is given by the whole team together. Each person mainly presents their own area.
 - The **form definition comes first**: every area depends on it, so areas 1 and 3 define fields *with codes* together, before parallel work starts.
-- Architecture decisions (e.g. backend option A vs. B) are made by the whole team and recorded as short decision records in `docs/decisions/`.
+- Architecture decisions (e.g. the storage format) are made by the whole team and recorded as short decision records in `docs/decisions/`.
 
 ---
 
 ## Architecture
 
-| Layer    | Technology                                                                               |
-| -------- | ---------------------------------------------------------------------------------------- |
-| Frontend | One React web app as an offline-capable PWA: case form (mobile-first) and dashboard (desktop), shared login |
-| Backend  | **To be decided** (see options below)                                              |
-| Hosting  | **On-premise in the hospital intranet** for production; cloud only for development and demo with synthetic data (see below) |
+PulseNote is a **prototype**. The stack is kept deliberately simple:
+
+| Layer    | Technology                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend | One web app for phone and desktop in **plain HTML, CSS and JavaScript**: no framework, no build step. Offline-capable PWA with a shared login. |
+| Backend  | **Python + [FastAPI](https://fastapi.tiangolo.com/)**, run in **Docker**                                                        |
+| Storage  | **JSON files** on disk, one file per case (alternatively one single file). No database, since this is only a prototype.        |
+| Hosting  | Locally for the presentation, or on a private personal server (see [Hosting](#hosting))                                        |
+
+### FHIR as the shared data model
+
+The FHIR data model is **defined once** in this repository: the `Questionnaire`s (forms), the resources extracted from them, and the ValueSets behind every answer option (see [FHIR data model](#fhir-data-model)). Every part of the system uses this one model:
+
+- **The web apps speak FHIR.** On phones and desktops, the web app creates, updates and fetches FHIR resources on/from the server. There is no internal format to translate, so the web apps and the server are interoperable by design.
+- **The server provides an API endpoint for every function** described in this README, including free-text generation. The web apps contain no business logic of their own beyond rendering the forms and keeping local drafts.
+- **Other services can use the same API.** The endpoints are not tied to the web apps, so other systems (e.g. an HIS interface or an analytics tool) can create and read cases the same way.
+- **FHIR export runs through the API.** Single resources, a full bundle per case or an IPS document can be fetched from the backend.
+
+```mermaid
+flowchart LR
+    P[Web app on the phone<br/>case form, local drafts] -- FHIR over REST --> API
+    D[Web app on the PC<br/>dashboard] <-- FHIR over REST --> API
+    O[Other services] <-. FHIR over REST .-> API
+    API[FastAPI backend<br/>Docker] <--> S[(JSON files<br/>one per case)]
+    API -- export --> X[FHIR bundle / IPS document<br/>free-text report]
+```
+
+A dedicated FHIR server (e.g. [HAPI FHIR](https://hapifhir.io/)) was considered as storage. For a prototype it adds too much operational effort (Java server, memory, upgrades). Because the data is FHIR already, it can be added later as a storage or export target without changing the web apps.
+
+Form versioning: each `QuestionnaireResponse` refers to the exact `Questionnaire` version it was filled in with.
+
+### API
+
+First draft. The binding definition is the OpenAPI spec that FastAPI generates automatically (served at `/docs`).
+
+| Method & path                     | Purpose                                                                                                   |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `GET /questionnaires`             | List the available form templates (`Questionnaire`s)                                                    |
+| `GET /questionnaires/{id}`        | Fetch one form template                                                                                   |
+| `GET /cases`                      | List cases (e.g. the physician's cases of the current shift)                                              |
+| `PUT /cases/{id}`                 | Create or update a case (`QuestionnaireResponse`). The ID comes from the phone, so sending again never creates a duplicate. |
+| `GET /cases/{id}`                 | Fetch a case                                                                                              |
+| `DELETE /cases/{id}`              | Delete a case                                                                                             |
+| `GET /cases/{id}/fhir`            | Export the case as a FHIR R4 `Bundle` of the extracted, IPS-aligned resources                            |
+| `GET /cases/{id}/ips`             | Export the case as an IPS document                                                                        |
+| `GET /cases/{id}/text`            | Generate the free-text report for the HIS                                                                 |
 
 ### Repository structure
 
-The project is a single repository (monorepo). Everything that runs and is deployed lives in `apps/`. Libraries shared by several apps live in `packages/`.
+The project is a single repository (monorepo). Everything that runs and is deployed lives in `apps/`. Data and libraries shared by several apps live in `packages/`.
 
 ```
 pulsenote/
 ├── apps/
-│   ├── web/                    # React web app: case form + dashboard (area 4)
-│   │   └── src/
-│   │       ├── features/
-│   │       │   ├── case-form/  # three-step wizard (phone) / single page (PC), local drafts
-│   │       │   └── dashboard/  # case list, editing, export, analytics
-│   │       ├── auth/           # shared login
-│   │       └── components/     # shared UI building blocks
-│   └── api/                    # backend (area 2)
-│       ├── src/
-│       │   ├── routes/         # endpoints: save, load, export cases
+│   ├── web/                    # web app in HTML, CSS, JS: case form + dashboard (area 4)
+│   │   ├── index.html
+│   │   ├── css/
+│   │   ├── js/
+│   │   │   ├── case-form/      # three-step wizard (phone) / single page (PC), local drafts
+│   │   │   ├── dashboard/      # case list, editing, export, analytics
+│   │   │   └── auth/           # shared login
+│   │   └── service-worker.js   # offline caching
+│   └── api/                    # FastAPI backend (area 2)
+│       ├── app/
+│       │   ├── main.py
+│       │   ├── routes/         # endpoints: cases, questionnaires, export
 │       │   ├── auth/           # authentication, roles
-│       │   ├── db/             # database access
+│       │   ├── storage/        # reading and writing the JSON case files
 │       │   └── export/         # FHIR / IPS export and free-text generation
-│       └── migrations/         # database schema
+│       ├── data/               # JSON case files (git-ignored, Docker volume)
+│       └── Dockerfile
 ├── packages/
 │   ├── form-definitions/       # FHIR Questionnaires (area 1, codes with area 3)
 │   ├── terminology/            # ValueSets, ConceptMaps (area 3)
-│   └── fhir-mapping/           # QuestionnaireResponse → FHIR resources, IPS (area 2)
+│   └── fhir-mapping/           # QuestionnaireResponse → FHIR resources, IPS (area 2, used by the API)
 ├── docs/
 │   └── decisions/              # architecture decision records
+├── docker-compose.yml
 └── README.md
 ```
 
-The database is not part of the repository. Locally it will run as a Docker container, in production on the hospital's servers. Only its schema (`apps/api/migrations/`) lives here.
+Case data is not part of the repository. The backend writes it as JSON files to `apps/api/data/`, which is mounted as a Docker volume and ignored by git.
 
-### Backend options
+### Hosting
 
-#### Option A: Custom API (Node.js / TypeScript) + PostgreSQL
+The prototype is only run for the presentation, either **locally** (`docker compose up`) or on a **private personal server**. It is used with **synthetic patients only**, never with real patient data.
 
-The backend stores each case's `QuestionnaireResponse` in its own database (e.g. PostgreSQL with JSONB). Extraction into FHIR resources runs on export.
+#### Outlook: production in a hospital
 
-#### Option B: FHIR server as primary storage
-
-The `QuestionnaireResponse` and the resources extracted from it are stored directly in a FHIR server (e.g. [HAPI FHIR](https://hapifhir.io/) on PostgreSQL). A thin API layer in front handles authentication, form logic and free-text generation. Because forms are already FHIR `Questionnaire`s, the data is FHIR from the start, which makes this option more attractive.
-
-|                                  | **A: Node/TS + PostgreSQL**                               | **B: FHIR server**                                           |
-| -------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **FHIR export**            | ➖ Own mapping layer needed, must be kept in sync with profiles | ➕ Data is already FHIR; export is a simple bundle query           |
-| **Profile validation**     | ➖ Needs an external validator (e.g. HAPI validator)            | ➕ Built-in validation against profiles                            |
-| **Data model flexibility** | ➕ Free to model data the way the forms need; easy to iterate   | ➖ Every form change needs a FHIR mapping decision up front        |
-| **Dashboard / analytics**  | ➕ Plain SQL on familiar tables                                 | ➖ FHIR search isn't built for analytics; needs ETL or SQL-on-FHIR |
-| **Free-text export**       | ➕ Generated straight from the internal model                   | ➖ Must be generated from FHIR resources                           |
-| **Interoperability**       | ➖ Only through export                                          | ➕ Standard FHIR REST API out of the box                           |
-| **Tech stack**             | ➕ One language (TypeScript) end to end                         | ➖ Adds a Java-based server to run and maintain                    |
-| **Operational effort**     | ➕ Lightweight                                                  | ➖ Heavier (JVM, memory, upgrades)                                 |
-| **Lock-in risk**           | ➖ Custom schema                                                | ➕ Standard data format                                            |
-
-**Hybrid option:** Start with Option A, storing the `QuestionnaireResponse` per case. Add a FHIR server later as an export target or sync destination if interoperability needs grow.
-
-Form versioning works the same in both options: each `QuestionnaireResponse` refers to the exact `Questionnaire` version it was filled in with.
-
-### Hosting options
-
-**Production: on-premise in the hospital intranet.** Patient data never leaves the hospital network.
-
-**Development and demo: cloud.** Allowed only with synthetic patients, never with real patient data.
+A real deployment would run **on-premise in the hospital intranet**, so patient data never leaves the hospital network. A cloud would only be an option for development and demos with synthetic data.
 
 |                              | **On-premise (hospital intranet)**                                                  | **Cloud (EU)**                                                                                                                                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -233,6 +279,7 @@ Form versioning works the same in both options: each `QuestionnaireResponse` ref
 - Run officially by the hospital IT, not as a privately operated server in the hospital network
 - Listed in the hospital's record of processing activities, with a data protection impact assessment (DPIA)
 - Used on hospital-managed devices (MDM) with device encryption and screen lock; only unsent drafts are stored on the phone, temporarily
+- JSON file storage replaced by a proper database or FHIR server
 
 ---
 
@@ -323,7 +370,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 **Principles:**
 
 - **The HIS remains the patient record.** PulseNote is a temporary store. A case is deleted after a defined retention period once it has been transferred to the HIS.
-- **On-premise operation** by the hospital IT (see [Hosting options](#hosting-options))
+- **In production: on-premise operation** by the hospital IT (see [Hosting](#hosting)). The prototype runs locally or on a private server with synthetic data only.
 - **Only unsent drafts on the device, temporarily** (see [Offline use & local drafts](#offline-use--local-drafts)):
   - A draft is deleted from the phone as soon as the server confirms receipt.
   - Unsent drafts expire after a fixed time (e.g. 12–24 hours, about one shift); the app warns before that.
@@ -333,7 +380,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 - **Analytics** only on pseudonymized or aggregated data, since the treatment basis does not cover statistics by itself
 - **Course project:** synthetic patients only, never real patient data
 
-**Technical requirements:**
+**Technical requirements (for production):**
 
 - Login with hospital accounts and role-based access control
 - Encryption in transit (TLS) and at rest
@@ -345,16 +392,16 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 ## Roadmap
 
 - [X] Local prototype with General, Surgery and Respiratory templates
-- [ ] Decide backend architecture (Option A vs. B)
+- [X] Decide architecture: FHIR as the shared data model, FastAPI backend in Docker, JSON file storage, plain HTML/CSS/JS web app
 - [ ] First form definition as FHIR `Questionnaire` (`ed-general`), with codes
 - [ ] Data protection concept for on-premise operation (DPIA, retention period)
 - [ ] Authentication and user management
-- [ ] Central backend with save and load
+- [ ] FastAPI backend with case endpoints (create, update, fetch) and Docker setup
 - [ ] Case form with three steps, sending to the backend
 - [ ] Local drafts with autosave and offline use (PWA)
 - [ ] Case list on the phone (drafts and sent cases)
 - [ ] Dashboard with case view and editing
-- [ ] Free-text export in the dashboard
+- [ ] Free-text generation endpoint and export in the dashboard
 - [ ] Extraction from `QuestionnaireResponse` to IPS-aligned FHIR resources
 - [ ] FHIR export in the dashboard, including an IPS document validated against the IPS implementation guide
 - [ ] More specialty templates (orthopedics, neurology, pediatrics, …)
@@ -378,7 +425,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 
 ## Getting started
 
-_Not yet available. The folder skeleton is in place (see [Repository structure](#repository-structure)); setup instructions will follow once the tech stack is decided._
+_Not yet available._ The prototype will start with `docker compose up` (see [Hosting](#hosting)). Setup instructions will follow with the first code.
 
 ## License
 
