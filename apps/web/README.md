@@ -2,8 +2,8 @@
 
 The PulseNote web app (React): one app with one login and two views, built as an offline-capable Progressive Web App (PWA).
 
-- `src/features/case-form/`: case form. Three-step wizard on phones, single page on the PC. Local drafts and the phone's case list.
-- `src/features/dashboard/`: case list, editing, free-text and IPS export, analytics (planned).
+- `src/features/case-form/`: case form. Renders the FHIR `Questionnaire`s from `packages/form-definitions` generically: three-step wizard on phones, single page on the PC. Local drafts and the phone's case list.
+- `src/features/dashboard/`: case list, editing, free-text and FHIR export (incl. IPS document), analytics (planned).
 - `src/auth/`: shared login.
 - `src/components/`: shared UI building blocks.
 

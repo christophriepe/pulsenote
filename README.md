@@ -2,7 +2,9 @@
 
 Structured, mobile-first documentation forms for physicians in the emergency department (ED).
 
-PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored temporarily in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and transferred into the hospital information system (HIS), either as an **HL7 FHIR R4 International Patient Summary (IPS)** with standard terminologies or as a **free-text report**.
+PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored temporarily in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and transferred into the hospital information system (HIS), either as **HL7 FHIR R4 resources** with standard terminologies or as a **free-text report**.
+
+Forms are defined as **FHIR `Questionnaire`s**, as data rather than code. Each case's answers become standard FHIR resources, aligned with the **International Patient Summary (IPS)**. From these, PulseNote can generate an IPS document for further treatment. In German hospitals, the path into the HIS would be **ISiK**.
 
 **The HIS remains the patient record.** PulseNote is an input tool: it holds a case only until it has been transferred to the HIS.
 
@@ -21,7 +23,7 @@ PulseNote lets ED physicians record history and physical examination at the beds
    - **View:** open and review saved cases.
    - **Edit:** complete or correct a case.
    - **Free text:** generate a structured report and copy it into the HIS.
-   - **FHIR:** export an IPS document (FHIR R4) for import into the HIS, coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses.
+   - **FHIR:** export the case as FHIR R4 resources for import into the HIS, coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses. On request, also as an IPS document for further treatment.
 5. **Hand-over to the HIS:** Once the case is in the HIS, the HIS entry is the official record. PulseNote deletes the case after a defined retention period.
 6. **Analytics (planned):** statistics across cases in the dashboard, based on pseudonymized or aggregated data.
 
@@ -29,7 +31,7 @@ PulseNote lets ED physicians record history and physical examination at the beds
 flowchart LR
     A[PulseNote on the phone<br/>case form, local drafts] -- send --> B[PulseNote backend<br/>temporary case store]
     B <-- load / save --> E[PulseNote on the PC<br/>dashboard: view, edit]
-    E -- export --> C[IPS document, FHIR R4<br/>SNOMED CT, LOINC, UCUM]
+    E -- export --> C[FHIR R4 resources<br/>IPS-aligned, optional IPS document]
     E -- export --> D[Free-text report]
     C -- import --> H[HIS<br/>official patient record]
     D -- copy --> H
@@ -45,7 +47,7 @@ PulseNote is **one web app with one login**, built as a Progressive Web App (PWA
 - the **case form**, optimized for phones
 - the **dashboard**, optimized for desktop monitors
 
-Both views use the same form components and field definitions. A case entered on the phone looks and validates the same way when it is edited on the PC.
+Both views render the same form definitions, stored as FHIR `Questionnaire`s (see [`packages/form-definitions`](packages/form-definitions/README.md)). A case entered on the phone looks and validates the same way when it is edited on the PC.
 
 ### Case form (optimized for phones)
 
@@ -71,6 +73,8 @@ Templates available in the prototype:
 - **Respiratory**: infection / respiratory clinic
 
 Planned: orthopedics, neurology, pediatrics, and more.
+
+**Beyond the ED (outlook):** Because forms are data, the same app can serve other settings, such as ward rounds or doctors' practices, with new `Questionnaire`s instead of new code. Only the form and the type of `Encounter` change.
 
 ### Offline use & local drafts
 
@@ -99,7 +103,7 @@ Saved cases are reviewed, edited and exported in the dashboard. It works on a ph
 - **Case view**: browse and open saved cases
 - **Editing**: complete or correct a case using the same fields as the case form
 - **Free-text export**: generate the structured report and copy it into the HIS
-- **IPS export**: a FHIR R4 document bundle following the International Patient Summary implementation guide (see [FHIR &amp; IPS](#fhir--ips))
+- **FHIR export**: the case as FHIR R4 resources, optionally as an IPS document (see [FHIR data model](#fhir-data-model))
 - **Analytics (planned)**: e.g. case volumes, symptom distribution, documentation completeness
 
 ---
@@ -111,7 +115,7 @@ The team has four people. The four areas follow the course's team assessment cri
 | # | Area                                     | Assessment criterion    | Owner       | Responsibilities                                                                                                                                                                         |
 | - | ---------------------------------------- | ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 | **Medical domain & use case**      | Use case and user focus | Christoph   | Clinical problem and user needs, clinical content of the forms (fields, answer options, templates), free-text report content and wording, test cases and sample patients, dashboard KPIs |
-| 2 | **Backend & FHIR / IPS modelling** | FHIR / IPS modelling    | Jeremias??? | API, data model and storage, FHIR resources and IPS document bundle, validation against the IPS IG, free-text generation in code, deployment                                             |
+| 2 | **Backend & FHIR / IPS modelling** | FHIR / IPS modelling    | Jeremias??? | API, data model and storage, extraction from `QuestionnaireResponse` to FHIR resources, IPS document, validation, free-text generation in code, deployment |
 | 3 | **Terminologies**                  | Terminologies           | Heinrich??? | SNOMED CT, LOINC, UCUM, ICD-10-GM, ATC; ValueSets for every answer option; ConceptMaps; code bindings in the FHIR resources; IPS "absent/unknown" codes                                  |
 | 4 | **Frontend & prototype**           | Prototype and demo      | Chad???     | React web app (case form and dashboard), login UI, mobile and desktop UX, demo build                                                                                                     |
 
@@ -126,9 +130,9 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 
 | Contract                                                                             | Between          | Format                                                      |
 | ------------------------------------------------------------------------------------ | ---------------- | ----------------------------------------------------------- |
-| **Form definition**: fields, types, answer options and their codes             | 1 ↔ 3 ↔ 4 ↔ 2 | Shared schema (e.g. JSON Schema or FHIR `Questionnaire`)  |
+| **Form definition**: fields, types, answer options and their codes             | 1 ↔ 3 ↔ 4 ↔ 2 | FHIR `Questionnaire` in [`packages/form-definitions`](packages/form-definitions/README.md) |
 | **Terminology bindings**: which code and ValueSet goes into which FHIR element | 3 ↔ 2           | Mapping table in the repo                                   |
-| **IPS mapping**: which form field goes into which IPS section and resource     | 2 ↔ 1 ↔ 3      | Mapping table in the repo (see [FHIR &amp; IPS](#fhir--ips)) |
+| **Extraction mapping**: which answer becomes which FHIR resource and IPS section | 2 ↔ 1 ↔ 3      | Mapping table in the repo (see [FHIR data model](#fhir-data-model)) |
 | **API**: endpoints for saving, loading and exporting                           | 4 ↔ 2           | OpenAPI spec                                                |
 | **Free-text report**: structure and wording of the HIS text                    | 1 ↔ 2           | Template with example output                                |
 
@@ -168,12 +172,12 @@ pulsenote/
 │       │   ├── routes/         # endpoints: save, load, export cases
 │       │   ├── auth/           # authentication, roles
 │       │   ├── db/             # database access
-│       │   └── export/         # IPS bundle and free-text generation
+│       │   └── export/         # FHIR / IPS export and free-text generation
 │       └── migrations/         # database schema
 ├── packages/
-│   ├── form-definitions/       # fields, answer options and codes (area 1, codes with area 3)
+│   ├── form-definitions/       # FHIR Questionnaires (area 1, codes with area 3)
 │   ├── terminology/            # ValueSets, ConceptMaps (area 3)
-│   └── fhir-mapping/           # form data → IPS resources (area 2)
+│   └── fhir-mapping/           # QuestionnaireResponse → FHIR resources, IPS (area 2)
 ├── docs/
 │   └── decisions/              # architecture decision records
 └── README.md
@@ -185,18 +189,17 @@ The database is not part of the repository. Locally it will run as a Docker cont
 
 #### Option A: Custom API (Node.js / TypeScript) + PostgreSQL
 
-The backend stores form data in its own data model (e.g. relational tables plus JSONB). A mapping layer turns it into FHIR resources on export.
+The backend stores each case's `QuestionnaireResponse` in its own database (e.g. PostgreSQL with JSONB). Extraction into FHIR resources runs on export.
 
 #### Option B: FHIR server as primary storage
 
-Form data is mapped to FHIR resources on save and stored directly in a FHIR server (e.g. [HAPI FHIR](https://hapifhir.io/) on PostgreSQL). A thin API layer in front handles authentication, form logic and free-text generation.
+The `QuestionnaireResponse` and the resources extracted from it are stored directly in a FHIR server (e.g. [HAPI FHIR](https://hapifhir.io/) on PostgreSQL). A thin API layer in front handles authentication, form logic and free-text generation. Because forms are already FHIR `Questionnaire`s, the data is FHIR from the start, which makes this option more attractive.
 
 |                                  | **A: Node/TS + PostgreSQL**                               | **B: FHIR server**                                           |
 | -------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
 | **FHIR export**            | ➖ Own mapping layer needed, must be kept in sync with profiles | ➕ Data is already FHIR; export is a simple bundle query           |
 | **Profile validation**     | ➖ Needs an external validator (e.g. HAPI validator)            | ➕ Built-in validation against profiles                            |
 | **Data model flexibility** | ➕ Free to model data the way the forms need; easy to iterate   | ➖ Every form change needs a FHIR mapping decision up front        |
-| **Form versioning**        | ➕ Simple: store form version alongside the data                | ➖ Needs `Questionnaire` versioning or extensions                |
 | **Dashboard / analytics**  | ➕ Plain SQL on familiar tables                                 | ➖ FHIR search isn't built for analytics; needs ETL or SQL-on-FHIR |
 | **Free-text export**       | ➕ Generated straight from the internal model                   | ➖ Must be generated from FHIR resources                           |
 | **Interoperability**       | ➖ Only through export                                          | ➕ Standard FHIR REST API out of the box                           |
@@ -204,7 +207,9 @@ Form data is mapped to FHIR resources on save and stored directly in a FHIR serv
 | **Operational effort**     | ➕ Lightweight                                                  | ➖ Heavier (JVM, memory, upgrades)                                 |
 | **Lock-in risk**           | ➖ Custom schema                                                | ➕ Standard data format                                            |
 
-**Hybrid option:** Start with Option A and keep a raw `QuestionnaireResponse` per form. Add a FHIR server later as an export target or sync destination if interoperability needs grow.
+**Hybrid option:** Start with Option A, storing the `QuestionnaireResponse` per case. Add a FHIR server later as an export target or sync destination if interoperability needs grow.
+
+Form versioning works the same in both options: each `QuestionnaireResponse` refers to the exact `Questionnaire` version it was filled in with.
 
 ### Hosting options
 
@@ -231,13 +236,34 @@ Form data is mapped to FHIR resources on save and stored directly in a FHIR serv
 
 ---
 
-## FHIR & IPS
+## FHIR data model
 
-The export follows the **HL7 FHIR International Patient Summary (IPS)** implementation guide (FHIR R4, [hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)).
+PulseNote uses FHIR R4 on two layers: **capture** with `Questionnaire` / `QuestionnaireResponse`, and **clinical data** with standard resources. The details, including the extraction table and the output targets, are in [`packages/form-definitions`](packages/form-definitions/README.md).
 
-Each saved case becomes an **IPS document**: a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference.
+```
+Questionnaire                 form definition as data, one per template
+     │  filled in by the physician
+     ▼
+QuestionnaireResponse         raw answers of one case
+     │  extraction (FHIR SDC)
+     ▼
+Encounter · Patient · Observation · Condition ·
+AllergyIntolerance · MedicationStatement · Procedure      (IPS-aligned)
+     │  depending on the target
+     ▼
+IPS document · ISiK (HIS in German hospitals) · free-text report
+```
 
-### Form content → IPS sections
+- **ED documentation** lives in the extracted resources: an `Encounter` for the ED visit (class `EMER`), plus `Observation`s for vital signs, symptoms and examination findings. This covers everything the form records, including the physical examination.
+- **IPS alignment:** Wherever an IPS profile exists (`Patient`, `Condition`, `AllergyIntolerance`, `MedicationStatement`, `Procedure`, results), the extracted resources follow it.
+- **IPS document:** For further treatment, e.g. at transfer or discharge, PulseNote can generate an IPS document from the same resources.
+- **ISiK:** The German FHIR interface specifications for hospital information systems, published by gematik. A real import into a German HIS would most likely go through ISiK. This is an outlook beyond the course project.
+
+### IPS document
+
+The IPS ([hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)) is a short, international summary of a person's key health data for further treatment. An IPS document is a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference.
+
+#### Form content → IPS sections
 
 | Form content                                              | IPS section (LOINC)                      | Resource / profile                                  | Terminology                               |
 | --------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
@@ -253,6 +279,15 @@ Each saved case becomes an **IPS document**: a `Bundle` of type `document`. Its 
 
 **Required sections:** The IPS requires *Problems*, *Allergies and intolerances* and *Medication summary*. They must be present even when the form has no entries. For that case the IPS defines explicit codes such as "no known allergies" or "no information about medications". The form's "No" answers map to these codes.
 
+#### Outside the IPS scope
+
+The IPS summarizes a *person*; it does not document a single visit. These form fields are therefore not part of the IPS document:
+
+- Physical examination findings (heart, lungs, abdomen, extremities, general condition)
+- ED context: room, stretcher number, last meal, GP, referring physician, insurance
+
+They are not lost: they live in the extracted `Encounter` and `Observation` resources and in the free-text report.
+
 ### Vital signs (LOINC + UCUM)
 
 | Measurement                        | LOINC                    | UCUM unit  |
@@ -267,19 +302,6 @@ Each saved case becomes an **IPS document**: a `Bundle` of type `document`. Its 
 | Body height                        | `8302-2`               | `cm`     |
 | Body weight                        | `29463-7`              | `kg`     |
 
-### Outside the IPS scope
-
-The IPS is a *summary*, not ED encounter documentation. Several form fields have no matching IPS section:
-
-- Physical examination findings (heart, lungs, abdomen, extremities, general condition)
-- ED context: room, stretcher number, last meal, GP, referring physician, insurance
-
-Options, still to be decided:
-
-1. Add extra sections to the `Composition` (check what the IPS IG allows)
-2. Export them as additional resources (`Encounter`, `Observation`) in a companion bundle next to the IPS document
-3. Keep them only in the free-text report
-
 ### Terminologies
 
 | Terminology         | Used for                                                                                                           |
@@ -290,7 +312,7 @@ Options, still to be decided:
 | **ICD-10-GM** | Additional coding for diagnoses (German context)                                                                   |
 | **ATC**       | Medication classes                                                                                                 |
 
-Every answer option in the forms is backed by a **ValueSet**, so the form, the FHIR export and the free-text report all use the same codes.
+Every answer option in the `Questionnaire`s is backed by a **ValueSet**, so the form, the extracted resources, the FHIR export and the free-text report all use the same codes.
 
 ---
 
@@ -324,6 +346,7 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 
 - [X] Local prototype with General, Surgery and Respiratory templates
 - [ ] Decide backend architecture (Option A vs. B)
+- [ ] First form definition as FHIR `Questionnaire` (`ed-general`), with codes
 - [ ] Data protection concept for on-premise operation (DPIA, retention period)
 - [ ] Authentication and user management
 - [ ] Central backend with save and load
@@ -332,9 +355,11 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 - [ ] Case list on the phone (drafts and sent cases)
 - [ ] Dashboard with case view and editing
 - [ ] Free-text export in the dashboard
-- [ ] IPS export (FHIR R4) in the dashboard, validated against the IPS implementation guide
+- [ ] Extraction from `QuestionnaireResponse` to IPS-aligned FHIR resources
+- [ ] FHIR export in the dashboard, including an IPS document validated against the IPS implementation guide
 - [ ] More specialty templates (orthopedics, neurology, pediatrics, …)
 - [ ] Dashboard analytics
+- [ ] Outlook: ISiK interface to the HIS; other settings (ward round, practice)
 
 ---
 
@@ -346,7 +371,8 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 - **Draft expiry:** Do unsent drafts expire after 12 or 24 hours?
 - **Sign-off & history:** Saved cases can be edited on the PC. Is there a final sign-off after which a case is locked, and do we need a version history of edits?
 - **Language:** German only, or multilingual forms?
-- **Data outside the IPS:** Where do exam findings and ED-specific details go in the FHIR export (see [Outside the IPS scope](#outside-the-ips-scope))?
+- **IPS in the grading:** Does the course accept IPS-aligned resources plus an optional IPS document, or does it expect the IPS document as the main output? To be confirmed with the course instructors.
+- **Form renderer:** Build our own `Questionnaire` renderer, or use an existing one such as Smart Forms?
 
 ---
 
