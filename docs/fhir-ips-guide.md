@@ -2,7 +2,7 @@
 
 The FHIR and IPS concepts PulseNote is built on, explained from the ground up and how they connect. Read it top to bottom: each section builds on the previous one.
 
-For the project itself, see the [root README](../README.md), in particular [FHIR data model](../README.md#fhir-data-model).
+For the project itself, see the [root README](../README.md). Its [FHIR data model](../README.md#fhir-data-model) section summarizes what this guide explains; the [mapping table](#7-the-mapping-table) here is the detailed version.
 
 > **Note on the examples:** The JSON snippets are shortened for readability and would not pass the FHIR validator as they are. The SNOMED CT codes are unverified. Check them in a SNOMED CT browser before using them.
 
@@ -115,7 +115,7 @@ Plain FHIR resources are very open: almost every field is optional and any code 
 
 The **IPS (International Patient Summary)** is an HL7 implementation guide (also ISO 27269) and defines such profiles, for example:
 
-- **Patient (IPS):** name, date of birth and sex are required
+- **Patient (IPS):** name and date of birth are required; sex (`gender`) is *must support*
 - **Condition (IPS):** must reference a patient and must have a code, from SNOMED CT where possible
 - **AllergyIntolerance (IPS):** the substance must be coded; "no known allergies" has a fixed code
 
@@ -289,7 +289,7 @@ A starting point: one row per field from the case form in the [README](../README
 | ↳ Systolic                  | `Observation.component.valueQuantity`       | LOINC `8480-6`                         | `mm[Hg]` | –                   | Vital signs (`8716-3`)      | |
 | ↳ Diastolic                 | `Observation.component.valueQuantity`       | LOINC `8462-4`                         | `mm[Hg]` | –                   | Vital signs (`8716-3`)      | |
 | Heart rate                  | `Observation.valueQuantity`                 | LOINC `8867-4`                         | `/min`   | –                   | Vital signs (`8716-3`)      | |
-| SpO₂                        | `Observation.valueQuantity`                 | LOINC `2708-6` + `59408-5`             | `%`      | –                   | Vital signs (`8716-3`)      | |
+| SpO₂                        | `Observation.valueQuantity`                 | LOINC `2708-6` + `59408-5` (both codings) | `%`   | –                   | Vital signs (`8716-3`)      | |
 | Temperature                 | `Observation.valueQuantity`                 | LOINC `8310-5`                         | `Cel`    | –                   | Vital signs (`8716-3`)      | |
 | Respiratory rate            | `Observation.valueQuantity`                 | LOINC `9279-1`                         | `/min`   | –                   | Vital signs (`8716-3`)      | |
 | Lab findings                | `Observation` (category `laboratory`)       | LOINC per test (look up)               | UCUM per test | –              | Results (`30954-2`)         | Which tests in the prototype? |

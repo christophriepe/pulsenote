@@ -56,17 +56,7 @@ FHIR R4 and the Structured Data Capture (SDC) implementation guide already cover
 
 ## Extraction: from answers to resources
 
-| Form content                         | Extracted resource                  | Terminology                         |
-| ------------------------------------ | ----------------------------------- | ----------------------------------- |
-| Patient details                      | `Patient`                           | –                                   |
-| Setting, location, time              | `Encounter`                         | –                                   |
-| Vital signs, height, weight          | `Observation`                       | LOINC, UCUM                         |
-| Symptoms and exam findings           | `Observation`                       | SNOMED CT                           |
-| "No" answers (e.g. no chest pain)    | `Observation` recording the absence | SNOMED CT _(to be modelled with area 3)_ |
-| Past medical history                 | `Condition`                         | SNOMED CT, ICD-10-GM                |
-| Allergies                            | `AllergyIntolerance`                | SNOMED CT                           |
-| Long-term medication                 | `MedicationStatement`               | SNOMED CT, ATC                      |
-| Past surgeries                       | `Procedure`                         | SNOMED CT                           |
+Which answer becomes which FHIR resource, with which code, is defined field by field in the [mapping table](../../docs/fhir-ips-guide.md#7-the-mapping-table) of the FHIR & IPS guide.
 
 Modelling negative findings cleanly is one of the most demanding parts of this project, and a good place to show terminology and modelling skills.
 

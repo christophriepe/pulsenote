@@ -249,9 +249,9 @@ Case data is not part of the repository. The backend writes it as JSON files to 
 
 ## FHIR data model
 
-> New to FHIR or the IPS? Start with the [FHIR & IPS guide](docs/fhir-ips-guide.md): glossary, where to look up IPS profiles and codes, and the mapping table.
+> New to FHIR or the IPS? Start with the [FHIR & IPS guide](docs/fhir-ips-guide.md): the concepts, the field-by-field [mapping table](docs/fhir-ips-guide.md#7-the-mapping-table) and [where to look up codes](docs/fhir-ips-guide.md#where-to-look-things-up). This section is the summary. The mapping table is the detailed, binding version.
 
-PulseNote uses FHIR R4 on two layers: **capture** with `Questionnaire` / `QuestionnaireResponse`, and **clinical data** with standard resources. The details, including the extraction table and the output targets, are in [`packages/form-definitions`](packages/form-definitions/README.md).
+PulseNote uses FHIR R4 on two layers: **capture** with `Questionnaire` / `QuestionnaireResponse` (see [guide, section 3](docs/fhir-ips-guide.md#3-forms-questionnaire-and-questionnaireresponse)), and **clinical data** with standard resources (see [guide, section 4](docs/fhir-ips-guide.md#4-clinical-resources)). The output targets (IPS, ISiK, KBV, free text) are described in [`packages/form-definitions`](packages/form-definitions/README.md).
 
 ```
 Questionnaire                 form definition as data, one per template
@@ -268,38 +268,38 @@ IPS document · ISiK (HIS in German hospitals) · free-text report
 ```
 
 - **ED documentation** lives in the extracted resources: an `Encounter` for the ED visit (class `EMER`), plus `Observation`s for vital signs, symptoms and examination findings. This covers everything the form records, including the physical examination.
-- **IPS alignment:** Wherever an IPS profile exists (`Patient`, `Condition`, `AllergyIntolerance`, `MedicationStatement`, `Procedure`, results), the extracted resources follow it.
+- **IPS alignment:** Wherever an IPS profile exists (`Patient`, `Condition`, `AllergyIntolerance`, `MedicationStatement`, `Procedure`, results), the extracted resources follow it (see [guide, section 5](docs/fhir-ips-guide.md#5-profiles-and-the-ips-profiles)).
 - **IPS document:** For further treatment, e.g. at transfer or discharge, PulseNote can generate an IPS document from the same resources.
 - **ISiK:** The German FHIR interface specifications for hospital information systems, published by gematik. A real import into a German HIS would most likely go through ISiK. This is an outlook beyond the course project.
 
 ### IPS document
 
-The IPS ([hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)) is a short, international summary of a person's key health data for further treatment. An IPS document is a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference.
+The IPS ([hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)) is a short, international summary of a person's key health data for further treatment. An IPS document is a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference. The backend returns it at `GET /cases/{id}/fhir` (see [API](#api) and [guide, section 6](docs/fhir-ips-guide.md#6-fhir-documents-and-the-ips-document)).
 
 #### Form content → IPS sections
 
 | Form content                                              | IPS section (LOINC)                      | Resource / profile                                  | Terminology                               |
 | --------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
 | Patient demographics                                      | – (`Composition.subject`)             | `Patient` (IPS)                                   | –                                        |
-| Chief complaint, current symptoms                         | Problems (`11450-4`)                   | `Condition` (IPS)                                 | SNOMED CT                                 |
+| Chief complaint, current symptoms                         | Problems (`11450-4`), if modelled as `Condition` | `Condition` (IPS) or `Observation` _(open)_ | SNOMED CT                       |
 | Allergies                                                 | Allergies and intolerances (`48765-2`) | `AllergyIntolerance` (IPS)                        | SNOMED CT                                 |
 | Long-term medication                                      | Medication summary (`10160-0`)         | `MedicationStatement` (IPS), `Medication` (IPS) | SNOMED CT, ATC                            |
 | Past medical history                                      | History of past illness (`11348-0`)    | `Condition` (IPS)                                 | SNOMED CT, ICD-10-GM as additional coding |
 | Past surgeries                                            | History of procedures (`47519-4`)      | `Procedure` (IPS)                                 | SNOMED CT                                 |
 | Vital signs, height, weight                               | Vital signs (`8716-3`)                 | `Observation` (FHIR vital signs profiles)         | LOINC, UCUM                               |
 | Lab findings                                              | Results (`30954-2`)                    | `Observation` (IPS results profiles)              | LOINC, SNOMED CT                          |
-| Social history (care level, nursing home, legal guardian) | Social history (`29762-2`)             | `Observation`                                     | SNOMED CT / LOINC _(to be modelled)_    |
+| Social history (care level, nursing home)                 | Social history (`29762-2`)             | `Observation`                                     | SNOMED CT / LOINC _(to be modelled)_    |
 
-**Required sections:** The IPS requires *Problems*, *Allergies and intolerances* and *Medication summary*. They must be present even when the form has no entries. For that case the IPS defines explicit codes such as "no known allergies" or "no information about medications". The form's "No" answers map to these codes.
+**Required sections:** The IPS requires *Problems*, *Allergies and intolerances* and *Medication summary*. They must be present even when the form has no entries. For that case the IPS defines explicit codes such as "no known allergies" or "no information about medications". The form's "No" answers map to these codes, from the IPS code system *Absent and Unknown Data*.
 
 #### Outside the IPS scope
 
 The IPS summarizes a *person*; it does not document a single visit. These form fields are therefore not part of the IPS document:
 
 - Physical examination findings (heart, lungs, abdomen, extremities, general condition)
-- ED context: room, stretcher number, last meal, GP, referring physician, insurance
+- ED context: room, stretcher number, last meal, GP, referring physician, legal guardian, insurance
 
-They are not lost: they live in the extracted `Encounter` and `Observation` resources and in the free-text report.
+They are not lost: they live in other extracted resources (`Encounter`, `Observation`, `Patient.generalPractitioner`, `Patient.contact`, `Coverage`) and in the free-text report. The [mapping table](docs/fhir-ips-guide.md#7-the-mapping-table) gives the exact element for each field.
 
 ### Vital signs (LOINC + UCUM)
 
@@ -310,7 +310,7 @@ They are not lost: they live in the extracted `Encounter` and `Observation` reso
 | ↳ Diastolic                       | `8462-4`               | `mm[Hg]` |
 | Heart rate                         | `8867-4`               | `/min`   |
 | Respiratory rate                   | `9279-1`               | `/min`   |
-| Oxygen saturation (pulse oximetry) | `2708-6` / `59408-5` | `%`      |
+| Oxygen saturation (pulse oximetry) | `2708-6` + `59408-5` | `%`      |
 | Body temperature                   | `8310-5`               | `Cel`    |
 | Body height                        | `8302-2`               | `cm`     |
 | Body weight                        | `29463-7`              | `kg`     |
@@ -324,8 +324,9 @@ They are not lost: they live in the extracted `Encounter` and `Observation` reso
 | **UCUM**      | All units of measure                                                                                               |
 | **ICD-10-GM** | Additional coding for diagnoses (German context)                                                                   |
 | **ATC**       | Medication classes                                                                                                 |
+| **IPS Absent and Unknown Data** | "No known allergies", "no information about medications" and similar, for the required IPS sections |
 
-Every answer option in the `Questionnaire`s is backed by a **ValueSet**, so the form, the extracted resources, the FHIR export and the free-text report all use the same codes.
+Every answer option in the `Questionnaire`s is backed by a **ValueSet**, so the form, the extracted resources, the FHIR export and the free-text report all use the same codes. Where to look up each code system: see the [guide](docs/fhir-ips-guide.md#where-to-look-things-up).
 
 ---
 
