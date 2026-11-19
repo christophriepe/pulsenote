@@ -2,7 +2,9 @@
 
 Structured, mobile-first documentation forms for physicians in the emergency department (ED).
 
-PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and exported as an **HL7 FHIR R4 International Patient Summary (IPS)** with standard terminologies, or turned into **free-text reports** for import into the hospital information system (HIS).
+PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored temporarily in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and transferred into the hospital information system (HIS), either as an **HL7 FHIR R4 International Patient Summary (IPS)** with standard terminologies or as a **free-text report**.
+
+**The HIS remains the patient record.** PulseNote is an input tool: it holds a case only until it has been transferred to the HIS.
 
 > **Status:** Early planning. A local-only prototype (formerly *CaseFlow*) is live at [caseflow.christophriepe.com](https://caseflow.christophriepe.com). It stores all data in the browser and has no backend yet.
 
@@ -13,21 +15,24 @@ PulseNote lets ED physicians record history and physical examination at the beds
 ## Workflow
 
 1. **At the bedside:** The physician signs in to PulseNote on their phone, opens a new case and picks the template that fits the patient (e.g. internal medicine, surgery, respiratory).
-2. **Documentation:** They work through the three form steps: patient → history → examination.
-3. **Save:** On save, the data goes to the central PulseNote backend and is stored there.
+2. **Documentation:** They work through the three form steps: patient → history → examination. Every input is saved locally on the phone right away, so nothing is lost if the app is closed or the connection drops.
+3. **Send:** When the case is complete, the physician sends it to the central PulseNote backend. Without a connection, it stays on the phone as an unsent draft until it can be sent.
 4. **Review, edit & export on the PC (any time):** The physician signs in to the same web app on a desktop PC with the same credentials and opens the dashboard.
    - **View:** open and review saved cases.
    - **Edit:** complete or correct a case.
    - **Free text:** generate a structured report and copy it into the HIS.
-   - **FHIR:** export an IPS document (FHIR R4), coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses.
-5. **Analytics (planned):** statistics across all cases in the dashboard.
+   - **FHIR:** export an IPS document (FHIR R4) for import into the HIS, coded with SNOMED CT, LOINC and UCUM, plus ICD-10-GM as an additional coding for diagnoses.
+5. **Hand-over to the HIS:** Once the case is in the HIS, the HIS entry is the official record. PulseNote deletes the case after a defined retention period.
+6. **Analytics (planned):** statistics across cases in the dashboard, based on pseudonymized or aggregated data.
 
 ```mermaid
 flowchart LR
-    A[PulseNote on the phone<br/>case form] -- save --> B[PulseNote backend<br/>central data repository]
+    A[PulseNote on the phone<br/>case form, local drafts] -- send --> B[PulseNote backend<br/>temporary case store]
     B <-- load / save --> E[PulseNote on the PC<br/>dashboard: view, edit]
     E -- export --> C[IPS document, FHIR R4<br/>SNOMED CT, LOINC, UCUM]
-    E -- export --> D[Free-text report<br/>copy into HIS]
+    E -- export --> D[Free-text report]
+    C -- import --> H[HIS<br/>official patient record]
+    D -- copy --> H
     E -. planned .-> F[Analytics]
 ```
 
@@ -35,7 +40,7 @@ flowchart LR
 
 ## Features
 
-PulseNote is **one web app with one login** and two views:
+PulseNote is **one web app with one login**, built as a Progressive Web App (PWA) that can be installed on the phone's home screen and works offline. It has two views:
 
 - the **case form**, optimized for phones
 - the **dashboard**, optimized for desktop monitors
@@ -44,7 +49,14 @@ Both views use the same form components and field definitions. A case entered on
 
 ### Case form (optimized for phones)
 
-Each template is a three-step wizard. After the last step the physician saves, and the data is sent to the backend. On the PC, the same fields are shown on a single page for editing.
+Each template is a three-step wizard. After the last step the physician sends the case to the backend. On the PC, the same fields are shown on a single page for editing.
+
+**Case list on the phone:** The phone shows the physician's own cases of the current shift in two groups:
+
+- **Drafts:** cases stored locally on the phone that have not been sent yet, clearly marked as "not sent"
+- **Sent:** cases already on the server. They are loaded fresh from the server each time and are not stored on the phone, so they are only visible with a connection.
+
+Older cases are available in the dashboard on the PC.
 
 | Step                     | Contents (example: General)                                                                                                                                                                                                                              |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -59,6 +71,26 @@ Templates available in the prototype:
 - **Respiratory**: infection / respiratory clinic
 
 Planned: orthopedics, neurology, pediatrics, and more.
+
+### Offline use & local drafts
+
+Connectivity in the ED is unreliable, and losing ten minutes of history taking is not acceptable. The case form therefore works fully offline:
+
+| What                  | Offline | How                                                                                     |
+| --------------------- | ------- | --------------------------------------------------------------------------------------- |
+| Open the app          | ✅      | A service worker caches the app (e.g. via `vite-plugin-pwa`). The first start needs a connection. |
+| Fill in a case        | ✅      | Form definitions ship with the app                                                       |
+| Save drafts           | ✅      | Autosave after every input to IndexedDB in the browser                                   |
+| Send a case           | ❌      | Needs a connection; the draft stays on the phone until then                              |
+| See sent cases        | ❌      | Loaded from the server only, by design                                                   |
+
+**Things to watch:**
+
+- **Session:** Signing in again is impossible offline. The session lasts a full shift, and drafts stay editable even if the session has expired. Signing in again is only needed to send.
+- **App updates:** New versions arrive on the next start with a connection. The backend must therefore accept cases built with older form versions.
+- **No duplicates:** Each case gets its ID on the phone, so sending it again after a dropped connection does not create a second copy.
+- **iOS:** Safari and the home-screen app have separate storage. Physicians always use the installed home-screen app.
+- **Native app:** Not needed. If native features are needed later (secure system storage, wristband barcode scanning, distribution via the hospital's device management), the same React app can be wrapped with [Capacitor](https://capacitorjs.com/).
 
 ### Dashboard (optimized for desktop)
 
@@ -113,9 +145,9 @@ Most problems happen where two areas meet, so these interfaces are agreed on tog
 
 | Layer    | Technology                                                                               |
 | -------- | ---------------------------------------------------------------------------------------- |
-| Frontend | One React web app: case form (mobile-first) and dashboard (desktop), shared login        |
+| Frontend | One React web app as an offline-capable PWA: case form (mobile-first) and dashboard (desktop), shared login |
 | Backend  | **To be decided** (see options below)                                              |
-| Hosting  | **Cloud (EU, GDPR-compliant)** preferred; on-premise as an alternative (see below) |
+| Hosting  | **On-premise in the hospital intranet** for production; cloud only for development and demo with synthetic data (see below) |
 
 ### Repository structure
 
@@ -127,7 +159,7 @@ pulsenote/
 │   ├── web/                    # React web app: case form + dashboard (area 4)
 │   │   └── src/
 │   │       ├── features/
-│   │       │   ├── case-form/  # three-step wizard (phone) / single page (PC)
+│   │       │   ├── case-form/  # three-step wizard (phone) / single page (PC), local drafts
 │   │       │   └── dashboard/  # case list, editing, export, analytics
 │   │       ├── auth/           # shared login
 │   │       └── components/     # shared UI building blocks
@@ -139,7 +171,7 @@ pulsenote/
 │       │   └── export/         # IPS bundle and free-text generation
 │       └── migrations/         # database schema
 ├── packages/
-│   ├── form-definitions/       # fields, answer options and codes (areas 1 + 3)
+│   ├── form-definitions/       # fields, answer options and codes (area 1, codes with area 3)
 │   ├── terminology/            # ValueSets, ConceptMaps (area 3)
 │   └── fhir-mapping/           # form data → IPS resources (area 2)
 ├── docs/
@@ -147,7 +179,7 @@ pulsenote/
 └── README.md
 ```
 
-The database is not part of the repository. Locally it will run as a Docker container, later at the hosting provider. Only its schema (`apps/api/migrations/`) lives here.
+The database is not part of the repository. Locally it will run as a Docker container, in production on the hospital's servers. Only its schema (`apps/api/migrations/`) lives here.
 
 ### Backend options
 
@@ -176,17 +208,26 @@ Form data is mapped to FHIR resources on save and stored directly in a FHIR serv
 
 ### Hosting options
 
-**Preferred: cloud hosting in the EU, GDPR-compliant.** On-premise in the hospital is the alternative.
+**Production: on-premise in the hospital intranet.** Patient data never leaves the hospital network.
 
-|                                    | **Cloud (EU)**                                                                                                                                                                                                                     | **On-premise (hospital)**                                            |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **Time to first deployment** | ➕ Fast; managed database, backups, TLS                                                                                                                                                                                                  | ➖ Depends on hospital IT processes and resources                          |
-| **Access from phones**       | ➕ Reachable over the internet (with strong auth)                                                                                                                                                                                        | ➖ Needs hospital Wi-Fi, VPN or MDM-managed devices                        |
-| **Approval**                 | ➖ Needs data protection officer approval, a data processing agreement (AVV), and possibly a cloud attestation (e.g. BSI C5); German hospital and professional secrecy rules (§ 203 StGB, state hospital laws) may restrict outsourcing | ➕ Patient data stays in the hospital network, so approval is often easier |
-| **HIS integration**          | ➖ Needs a secure link into the hospital network                                                                                                                                                                                         | ➕ Close to the HIS; direct integration possible later                     |
-| **Operations & updates**     | ➕ Central; one deployment for all users                                                                                                                                                                                                 | ➖ Per-site installation and updates                                       |
-| **Scalability / multi-site** | ➕ Easy to serve several hospitals                                                                                                                                                                                                       | ➖ Every site runs its own instance                                        |
-| **Costs**                    | ➖ Ongoing hosting costs                                                                                                                                                                                                                 | ➖ Hardware and IT staff time at the hospital                              |
+**Development and demo: cloud.** Allowed only with synthetic patients, never with real patient data.
+
+|                              | **On-premise (hospital intranet)**                                                  | **Cloud (EU)**                                                                                                                                                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Approval**                 | ➕ Patient data stays in the hospital network, so approval is much easier           | ➖ Needs data protection officer approval, a data processing agreement (AVV), and possibly a cloud attestation (e.g. BSI C5); German hospital and professional secrecy rules (§ 203 StGB, state hospital laws) may restrict outsourcing |
+| **HIS integration**          | ➕ Close to the HIS; direct integration possible later                              | ➖ Needs a secure link into the hospital network                                                                                                                                                                                   |
+| **Login**                    | ➕ Can use existing hospital accounts                                               | ➖ Needs a connection to the hospital's directory, or separate accounts                                                                                                                                                            |
+| **Access from phones**       | ➖ Needs hospital Wi-Fi and hospital-managed devices                                 | ➕ Reachable over the internet (with strong auth)                                                                                                                                                                                  |
+| **Time to first deployment** | ➖ Depends on hospital IT processes and resources                                    | ➕ Fast; managed database, backups, TLS                                                                                                                                                                                            |
+| **Operations & updates**     | ➖ Per-site installation and updates                                                 | ➕ Central; one deployment for all users                                                                                                                                                                                           |
+| **Scalability / multi-site** | ➖ Every site runs its own instance                                                   | ➕ Easy to serve several hospitals                                                                                                                                                                                                 |
+| **Costs**                    | ➖ Hardware and IT staff time at the hospital                                        | ➖ Ongoing hosting costs                                                                                                                                                                                                           |
+
+**Conditions for on-premise operation:**
+
+- Run officially by the hospital IT, not as a privately operated server in the hospital network
+- Listed in the hospital's record of processing activities, with a data protection impact assessment (DPIA)
+- Used on hospital-managed devices (MDM) with device encryption and screen lock; only unsent drafts are stored on the phone, temporarily
 
 ---
 
@@ -255,14 +296,27 @@ Every answer option in the forms is backed by a **ValueSet**, so the form, the F
 
 ## Data protection & security
 
-PulseNote processes health data, a special category under Art. 9 GDPR. Minimum requirements:
+PulseNote processes health data, a special category under Art. 9 GDPR. The legal basis is treatment by the treating physicians (Art. 9(2)(h) GDPR together with state hospital law).
 
+**Principles:**
+
+- **The HIS remains the patient record.** PulseNote is a temporary store. A case is deleted after a defined retention period once it has been transferred to the HIS.
+- **On-premise operation** by the hospital IT (see [Hosting options](#hosting-options))
+- **Only unsent drafts on the device, temporarily** (see [Offline use & local drafts](#offline-use--local-drafts)):
+  - A draft is deleted from the phone as soon as the server confirms receipt.
+  - Unsent drafts expire after a fixed time (e.g. 12–24 hours, about one shift); the app warns before that.
+  - Drafts are tied to the signed-in user and deleted on sign-out. Another person on the same device never sees them.
+  - Sent cases are loaded from the server and never cached on the phone.
+  - Most of the protection comes from the hospital-managed device (encryption, screen lock). Extra encryption in the browser adds little, since the key would sit on the same device.
+- **Analytics** only on pseudonymized or aggregated data, since the treatment basis does not cover statistics by itself
+- **Course project:** synthetic patients only, never real patient data
+
+**Technical requirements:**
+
+- Login with hospital accounts and role-based access control
 - Encryption in transit (TLS) and at rest
-- Authentication and role-based access control for physicians
 - Audit logging of access and changes
-- Data processing agreement (AVV) with the hosting provider
-- Defined retention and deletion periods
-- No patient data in URLs, logs or analytics tools
+- No patient data in URLs or logs
 
 ---
 
@@ -270,10 +324,12 @@ PulseNote processes health data, a special category under Art. 9 GDPR. Minimum r
 
 - [X] Local prototype with General, Surgery and Respiratory templates
 - [ ] Decide backend architecture (Option A vs. B)
-- [ ] Decide hosting and get data protection approval
+- [ ] Data protection concept for on-premise operation (DPIA, retention period)
 - [ ] Authentication and user management
 - [ ] Central backend with save and load
-- [ ] Case form with three steps, saving to the backend
+- [ ] Case form with three steps, sending to the backend
+- [ ] Local drafts with autosave and offline use (PWA)
+- [ ] Case list on the phone (drafts and sent cases)
 - [ ] Dashboard with case view and editing
 - [ ] Free-text export in the dashboard
 - [ ] IPS export (FHIR R4) in the dashboard, validated against the IPS implementation guide
@@ -284,10 +340,10 @@ PulseNote processes health data, a special category under Art. 9 GDPR. Minimum r
 
 ## Open questions
 
-- **Authentication:** Hospital SSO (e.g. via Keycloak / OIDC), or separate PulseNote accounts?
+- **Authentication:** How do we connect to the hospital accounts (Active Directory / LDAP, or OIDC, e.g. via Keycloak)?
 - **Patient identification:** How are cases linked to the HIS (case number, patient ID, barcode scan)?
-- **Offline support:** Do forms need to work without a connection (e.g. poor reception in the ED) and sync later?
-- **Multi-tenancy:** One instance per hospital, or one shared instance for several hospitals?
+- **Retention period:** How long does a case stay in PulseNote after it has been transferred to the HIS?
+- **Draft expiry:** Do unsent drafts expire after 12 or 24 hours?
 - **Sign-off & history:** Saved cases can be edited on the PC. Is there a final sign-off after which a case is locked, and do we need a version history of edits?
 - **Language:** German only, or multilingual forms?
 - **Data outside the IPS:** Where do exam findings and ED-specific details go in the FHIR export (see [Outside the IPS scope](#outside-the-ips-scope))?

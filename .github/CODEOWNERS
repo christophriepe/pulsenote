@@ -4,8 +4,7 @@
 # The last matching pattern wins, so the catch-all rule comes first.
 # Each area folder has one owner. Shared files list everyone involved.
 #
-# TODO: Replace the placeholders with real GitHub usernames:
-#   @TODO-area1-medical      Area 1: Medical domain & use case
+# TODO: Replace the remaining placeholders with real GitHub usernames:
 #   @TODO-area2-backend      Area 2: Backend & FHIR / IPS modelling
 #   @TODO-area3-terminology  Area 3: Terminologies
 #   @TODO-area4-frontend     Area 4: Frontend & prototype
