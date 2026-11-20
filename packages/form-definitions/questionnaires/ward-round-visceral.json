@@ -1,0 +1,270 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "ward-round-visceral",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire"]
+  },
+  "language": "de",
+  "url": "https://pulsenote.example/Questionnaire/ward-round-visceral",
+  "version": "0.1",
+  "name": "WardRoundVisceral",
+  "title": "Visite – Viszeralchirurgie",
+  "status": "draft",
+  "experimental": true,
+  "subjectType": ["Patient"],
+  "date": "2026-11-20",
+  "publisher": "PulseNote",
+  "description": "Example form for a postoperative ward round in visceral surgery (Encounter.class IMP). Shows that the same approach works beyond the ED. Deliberately short; codes are sparse and unverified.",
+  "item": [
+    {
+      "linkId": "course",
+      "text": "Verlauf",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "location",
+          "text": "Zimmer / Bett",
+          "type": "string"
+        },
+        {
+          "linkId": "operation",
+          "text": "Operation",
+          "type": "string"
+        },
+        {
+          "linkId": "postoperative-day",
+          "text": "Postoperativer Tag",
+          "type": "integer",
+          "extension": [
+            { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueInteger": 0 },
+            { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueInteger": 90 }
+          ]
+        },
+        {
+          "linkId": "pain-nrs",
+          "text": "Schmerzstärke (NRS)",
+          "type": "integer",
+          "code": [{ "system": "http://loinc.org", "code": "72514-3", "display": "Pain severity - 0-10 verbal numeric rating [Score] - Reported" }],
+          "extension": [
+            { "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-observationExtract", "valueBoolean": true },
+            { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl", "valueCodeableConcept": { "coding": [{ "system": "http://hl7.org/fhir/questionnaire-item-control", "code": "slider", "display": "Slider" }] } },
+            { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-sliderStepValue", "valueInteger": 1 },
+            { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueInteger": 0 },
+            { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueInteger": 10 },
+            { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit", "valueCoding": { "system": "http://unitsofmeasure.org", "code": "{score}", "display": "score" } }
+          ],
+          "item": [
+            {
+              "linkId": "pain-nrs-lower",
+              "text": "kein Schmerz",
+              "type": "display",
+              "extension": [{ "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl", "valueCodeableConcept": { "coding": [{ "system": "http://hl7.org/fhir/questionnaire-item-control", "code": "lower", "display": "Lower-bound" }] } }]
+            },
+            {
+              "linkId": "pain-nrs-upper",
+              "text": "stärkster vorstellbarer Schmerz",
+              "type": "display",
+              "extension": [{ "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl", "valueCodeableConcept": { "coding": [{ "system": "http://hl7.org/fhir/questionnaire-item-control", "code": "upper", "display": "Upper-bound" }] } }]
+            }
+          ]
+        },
+        {
+          "linkId": "nausea-vomiting",
+          "text": "Übelkeit / Erbrechen",
+          "type": "boolean",
+          "code": [{ "system": "http://snomed.info/sct", "code": "16932000", "display": "Nausea and vomiting" }]
+        },
+        {
+          "linkId": "flatus",
+          "text": "Windabgang",
+          "type": "boolean"
+        },
+        {
+          "linkId": "bowel-movement",
+          "text": "Stuhlgang seit OP",
+          "type": "boolean"
+        },
+        {
+          "linkId": "diet",
+          "text": "Kostaufbau",
+          "type": "choice",
+          "answerOption": [
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "diet-nil-by-mouth", "display": "Nüchtern" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "diet-tea", "display": "Tee" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "diet-liquid", "display": "Flüssigkost" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "diet-light", "display": "Leichte Kost" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "diet-full", "display": "Vollkost" } }
+          ]
+        },
+        {
+          "linkId": "mobilisation",
+          "text": "Mobilisation",
+          "type": "choice",
+          "answerOption": [
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "mobility-bedbound", "display": "Bettlägerig" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "mobility-bedside", "display": "Bettkante" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "mobility-room", "display": "Im Zimmer" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "mobility-ward", "display": "Auf Station" } }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "findings",
+      "text": "Befund",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "vital-signs",
+          "text": "Vitalparameter",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "body-temperature",
+              "text": "Temperatur",
+              "type": "decimal",
+              "code": [{ "system": "http://loinc.org", "code": "8310-5", "display": "Body temperature" }],
+              "extension": [
+                { "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-observationExtract", "valueBoolean": true },
+                { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit", "valueCoding": { "system": "http://unitsofmeasure.org", "code": "Cel", "display": "°C" } },
+                { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueDecimal": 30 },
+                { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueDecimal": 45 }
+              ]
+            },
+            {
+              "linkId": "heart-rate",
+              "text": "Herzfrequenz",
+              "type": "integer",
+              "code": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate" }],
+              "extension": [
+                { "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-observationExtract", "valueBoolean": true },
+                { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit", "valueCoding": { "system": "http://unitsofmeasure.org", "code": "/min", "display": "/min" } },
+                { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueInteger": 20 },
+                { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueInteger": 250 }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "abdomen",
+          "text": "Abdomen",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "abdomen-soft",
+              "text": "Abdomen weich",
+              "type": "boolean"
+            },
+            {
+              "linkId": "abdominal-tenderness",
+              "text": "Druckschmerz",
+              "type": "boolean",
+              "code": [{ "system": "http://snomed.info/sct", "code": "43478001", "display": "Abdominal tenderness" }]
+            },
+            {
+              "linkId": "bowel-sounds",
+              "text": "Darmgeräusche",
+              "type": "choice",
+              "answerOption": [
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "bowel-sounds-normal", "display": "Normal" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "bowel-sounds-hyperactive", "display": "Lebhaft" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "bowel-sounds-hypoactive", "display": "Spärlich" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "bowel-sounds-absent", "display": "Fehlend" } }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "wound",
+          "text": "Wunde",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "wound-findings",
+              "text": "Wundbefund",
+              "type": "open-choice",
+              "repeats": true,
+              "answerOption": [
+                {
+                  "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "wound-unremarkable", "display": "Reizlos" },
+                  "extension": [{ "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-optionExclusive", "valueBoolean": true }]
+                },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "wound-redness", "display": "Rötung" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "wound-discharge", "display": "Sekretion" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "wound-haematoma", "display": "Hämatom" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "wound-dehiscence", "display": "Dehiszenz" } }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "drain",
+          "text": "Drainage",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "drain-present",
+              "text": "Drainage liegt",
+              "type": "boolean"
+            },
+            {
+              "linkId": "drain-output",
+              "text": "Fördermenge",
+              "type": "decimal",
+              "enableWhen": [{ "question": "drain-present", "operator": "=", "answerBoolean": true }],
+              "extension": [
+                { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit", "valueCoding": { "system": "http://unitsofmeasure.org", "code": "mL/(24.h)", "display": "ml/24 h" } },
+                { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueDecimal": 0 }
+              ]
+            },
+            {
+              "linkId": "drain-aspect",
+              "text": "Aspekt",
+              "type": "choice",
+              "enableWhen": [{ "question": "drain-present", "operator": "=", "answerBoolean": true }],
+              "answerOption": [
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-serous", "display": "Serös" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-serosanguineous", "display": "Serös-blutig" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-bloody", "display": "Blutig" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-turbid", "display": "Trüb" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-bilious", "display": "Gallig" } },
+                { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "drain-faecal", "display": "Stuhlig" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "plan",
+      "text": "Procedere",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "plan-measures",
+          "text": "Maßnahmen",
+          "type": "open-choice",
+          "repeats": true,
+          "answerOption": [
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-advance-diet", "display": "Kostaufbau steigern" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-increase-mobilisation", "display": "Mobilisation steigern" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-remove-drain", "display": "Drainage entfernen" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-remove-catheter", "display": "Blasenkatheter entfernen" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-lab-check", "display": "Laborkontrolle" } },
+            { "valueCoding": { "system": "https://pulsenote.example/CodeSystem/pulsenote-local", "code": "plan-remove-sutures", "display": "Fäden / Klammern entfernen" } }
+          ]
+        },
+        {
+          "linkId": "planned-discharge",
+          "text": "Geplante Entlassung",
+          "type": "date"
+        },
+        {
+          "linkId": "plan-notes",
+          "text": "Notizen",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

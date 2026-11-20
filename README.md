@@ -1,6 +1,21 @@
-# PulseNote
+<!-- Logo: CaseFlow wordmark for now. The final project name (PulseNote or CaseFlow) is not decided yet. -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/caseflow-wordmark-dark.svg">
+    <img src="docs/brand/caseflow-wordmark-light.svg" alt="CaseFlow" width="360">
+  </picture>
+</p>
 
-Structured, mobile-first documentation forms for physicians in the emergency department (ED).
+<p align="center">
+  Structured, mobile-first documentation forms for physicians in the emergency department (ED).
+</p>
+
+<p align="center">
+  <a href="https://hl7.org/fhir/R4/"><img src="https://img.shields.io/badge/FHIR-R4-2563EB" alt="FHIR R4"></a>
+  <a href="https://hl7.org/fhir/uv/ips/"><img src="https://img.shields.io/badge/IPS-aligned-2563EB" alt="IPS aligned"></a>
+  <img src="https://img.shields.io/badge/status-prototype-64748B" alt="Status: prototype">
+  <a href="https://caseflow.christophriepe.com"><img src="https://img.shields.io/badge/demo-live-16A34A" alt="Live demo"></a>
+</p>
 
 PulseNote lets ED physicians record history and physical examination at the bedside on their phone. Data is stored temporarily in a central repository. On a desktop PC, the same web app offers a dashboard where cases can be reviewed, edited and transferred into the hospital information system (HIS), either as **HL7 FHIR R4 resources** with standard terminologies or as a **free-text report**.
 

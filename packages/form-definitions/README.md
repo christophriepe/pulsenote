@@ -67,7 +67,7 @@ Below the `Encounter`, vital signs, allergies and medication are modelled the sa
 | Setting                  | `Encounter.class` | Example `Questionnaire`   |
 | ------------------------ | ----------------- | ------------------------- |
 | Emergency department     | `EMER`            | `ed-general`              |
-| Ward round               | `IMP`             | `ward-round` _(outlook)_  |
+| Ward round               | `IMP`             | `ward-round-visceral` _(example)_ |
 | GP / specialist practice | `AMB`             | `practice-visit` _(outlook)_ |
 
 ## Output targets
@@ -118,9 +118,18 @@ Definitions are **versioned** (`Questionnaire.version`). Each `QuestionnaireResp
 
 ```
 packages/form-definitions/
-├── questionnaires/
+├── questionnaires/          one Questionnaire per template
 │   ├── ed-general.json
 │   ├── ed-surgery.json
-│   └── ed-respiratory.json
+│   ├── ed-respiratory.json
+│   └── ward-round-visceral.json   example beyond the ED: postoperative ward round
+├── examples/                filled-in QuestionnaireResponses for the synthetic test patients
+├── preview.html             preview for any Questionnaire file
 └── README.md
 ```
+
+Answer lists that are shared across forms (ValueSets, CodeSystems) live in `packages/terminology`, and the extraction logic lives in `packages/fhir-mapping`.
+
+## Preview
+
+[`preview.html`](preview.html) renders any `Questionnaire` the way the case form will: open it in a browser, then pick or drag in a JSON file such as `questionnaires/ed-surgery.json`. It shows the generated `QuestionnaireResponse` live and can show the linkIds and codes of every question. The file is read in the browser only, nothing is uploaded. After changing a JSON file, load it again.
