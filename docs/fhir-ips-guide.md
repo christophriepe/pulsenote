@@ -198,7 +198,7 @@ A real IPS document also needs `identifier`, `timestamp`, `Composition.author`, 
 
 In the draft API (see [API](../README.md#api)):
 
-- `GET /cases/{id}/fhir` returns the **patient FHIR document**: a **`document`** Bundle, the IPS, with only what belongs in a patient summary.
+- `GET /api/cases/{id}/export` returns the **patient FHIR document**: a **`document`** Bundle, the IPS, with only what belongs in a patient summary.
 - Should the full case, including the physical exam, be needed as FHIR later, a **`collection`** Bundle is the fitting type.
 
 ---

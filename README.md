@@ -25,7 +25,7 @@ Forms are defined as **FHIR `Questionnaire`s**, as data rather than code. Each c
 
 > **Status:** Early planning. A local-only prototype (formerly *CaseFlow*) is live at [caseflow.christophriepe.com](https://caseflow.christophriepe.com). It stores all data in the browser and has no backend yet.
 
-> **This repository** is the shared monorepo for the whole project: frontend (`apps/web`), backend (`apps/api`) and shared packages (`packages/`). See [Repository structure](#repository-structure).
+> **This repository** is the shared monorepo for the whole project: frontend (`apps/web`), backend (`apps/backend`) and shared packages (`packages/`). See [Repository structure](#repository-structure).
 
 ## Outline
 
@@ -229,15 +229,17 @@ Form versioning: each `QuestionnaireResponse` refers to the exact `Questionnaire
 
 ### API
 
-Draft. FastAPI generates the full OpenAPI spec at `/docs`.
+Draft. FastAPI generates the full OpenAPI spec at `/api/docs`. Details (validation, versions, storage): [`apps/backend`](apps/backend/README.md).
 
-| Endpoint                 | Purpose                        |
-| ------------------------ | ------------------------------ |
-| `GET /cases`             | List cases                     |
-| `GET /cases/{id}`        | Load a case                    |
-| `PUT /cases/{id}`        | Create or update a case        |
-| `GET /cases/{id}/text`   | Get the free text              |
-| `GET /cases/{id}/fhir`   | Get the patient FHIR document  |
+| Endpoint                         | Purpose                                         |
+| -------------------------------- | ----------------------------------------------- |
+| `GET /api/cases`                 | List cases                                      |
+| `GET /api/cases/{id}`            | Load a case                                     |
+| `PUT /api/cases/{id}`            | Create or update a case                         |
+| `DELETE /api/cases/{id}`         | Delete a case                                   |
+| `GET /api/cases/{id}/text`       | Get the free text _(not implemented yet)_       |
+| `GET /api/cases/{id}/export`       | Get the patient FHIR document _(not implemented yet)_ |
+| `GET /api/questionnaires[/{id}]` | Get the form definitions                        |
 
 ### Repository structure
 
@@ -247,14 +249,13 @@ The project is a single repository (monorepo). Everything that runs and is deplo
 pulsenote/
 ├── apps/
 │   ├── web/                    # web app in HTML, CSS, JS: case form + dashboard (area 4)
-│   └── api/                    # FastAPI backend in Docker (area 2)
+│   └── backend/                # FastAPI backend in Docker, incl. docker-compose.yml (area 2)
 ├── packages/
 │   ├── form-definitions/       # FHIR Questionnaires (area 1, codes with area 3)
 │   ├── terminology/            # ValueSets, ConceptMaps (area 3)
 │   └── fhir-mapping/           # QuestionnaireResponse → FHIR resources, IPS (area 2, used by the API)
 ├── docs/
 │   └── decisions/              # architecture decision records
-├── docker-compose.yml
 └── README.md
 ```
 
@@ -289,7 +290,7 @@ IPS document · ISiK (HIS in German hospitals) · free-text report
 
 ### IPS document
 
-The IPS ([hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)) is a short, international summary of a person's key health data for further treatment. An IPS document is a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference. The backend returns it at `GET /cases/{id}/fhir` (see [API](#api) and [guide, section 6](docs/fhir-ips-guide.md#6-fhir-documents-and-the-ips-document)).
+The IPS ([hl7.org/fhir/uv/ips](http://hl7.org/fhir/uv/ips)) is a short, international summary of a person's key health data for further treatment. An IPS document is a `Bundle` of type `document`. Its first entry is a `Composition` with LOINC `60591-5` (*Patient summary Document*). After it come the resources that the Composition's sections reference. The backend returns it at `GET /api/cases/{id}/export` (see [API](#api) and [guide, section 6](docs/fhir-ips-guide.md#6-fhir-documents-and-the-ips-document)).
 
 #### Form content → IPS sections
 
@@ -435,7 +436,14 @@ PulseNote processes health data, a special category under Art. 9 GDPR. The legal
 
 ## Getting started
 
-_Not yet available._ The prototype will start with `docker compose up` (see [Hosting](#hosting)). Setup instructions will follow with the first code.
+The backend runs with Docker from `apps/backend` (see [its README](apps/backend/README.md)):
+
+```bash
+cd apps/backend
+docker compose up -d --build
+```
+
+Then open <http://localhost:8014/> (form preview, until the web app exists) and <http://localhost:8014/api/docs> (API).
 
 ## License
 

@@ -1,0 +1,18 @@
+# Run from this folder: docker compose up -d --build
+name: pulsenote
+services:
+  backend:
+    container_name: pulsenote_backend
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    ports:
+      - "${APP_PORT:-8014}:8000"
+    volumes:
+      - case-data:/data
+    restart: unless-stopped
+    # Default: self-contained image (app/ and packages/form-definitions are copied in).
+    # For live editing add docker-compose.dev.yml (see README).
+
+volumes:
+  case-data:

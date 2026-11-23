@@ -16,7 +16,7 @@
 /packages/form-definitions/   @christophriepe
 
 # Area 2: Backend & FHIR / IPS modelling
-/apps/api/                    @TODO-area2-backend
+/apps/backend/                @TODO-area2-backend
 /packages/fhir-mapping/       @TODO-area2-backend
 
 # Area 3: Terminologies

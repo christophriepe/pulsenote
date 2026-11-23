@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# local case data (uv run uvicorn ...); in Docker it lives in a volume
+data/
