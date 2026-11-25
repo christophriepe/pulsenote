@@ -1,6 +1,8 @@
 // Generic FHIR R4 Questionnaire helpers: indexing, enableWhen, QuestionnaireResponse build/parse.
 // Answers are kept as a map: linkId -> array of FHIR answer objects, e.g. [{ valueBoolean: true }].
 
+import { i18n } from './i18n.js';
+
 const SD = 'http://hl7.org/fhir/StructureDefinition/';
 export const EXT = {
   unit: SD + 'questionnaire-unit',
@@ -18,6 +20,25 @@ export function extValue(item, url) {
   const k = Object.keys(e).find((x) => x.startsWith('value'));
   return e[k];
 }
+
+// ---------- translations ----------
+// Forms carry their own translations with the FHIR translation extension on item._text,
+// Questionnaire._title and Coding._display. The form's base language is Questionnaire.language.
+const TRANSLATION = 'http://hl7.org/fhir/StructureDefinition/translation';
+let baseLang = 'de';
+export function setFormLanguage(q) { baseLang = (q.language || 'de').slice(0, 2); }
+
+function translated(base, primitiveExt, lang = i18n.lang) {
+  if (!primitiveExt || lang === baseLang) return base;
+  const tr = (primitiveExt.extension || []).find((e) => e.url === TRANSLATION &&
+    e.extension?.some((x) => x.url === 'lang' && x.valueCode?.slice(0, 2) === lang));
+  return tr?.extension.find((x) => x.url === 'content')?.valueString || base;
+}
+export const itemText = (item) => translated(item.text, item._text);
+export const formTitle = (q) => translated(q.title, q._title);
+export const codingDisplay = (c) => translated(c.display || c.code, c._display);
+// Coding for storing in answers: without the translation extensions
+export const plainCoding = (c) => ({ system: c.system, code: c.code, display: c.display });
 
 export const itemControl = (item) => extValue(item, EXT.itemControl)?.coding?.[0]?.code;
 export const unitOf = (item) => extValue(item, EXT.unit);
@@ -91,8 +112,10 @@ export function buildItems(items, answers, index) {
       continue;
     }
     const ans = answers[it.linkId];
+    if (!ans?.length) continue;
+    // FHIR R4: child items of a question go under answer.item, never next to answer (qrs-1)
     const nested = buildItems(it.item, answers, index);
-    if (ans?.length) out.push({ linkId: it.linkId, text: it.text, answer: ans, ...(nested.length ? { item: nested } : {}) });
+    out.push({ linkId: it.linkId, text: it.text, answer: nested.length ? ans.map((a) => ({ ...a, item: nested })) : ans });
   }
   return out;
 }
@@ -112,21 +135,34 @@ export function buildResponse(q, answers, { id, status = 'in-progress', authored
 
 export function answersFromResponse(qr) {
   const answers = {};
-  walkItems(qr.item, (it) => { if (it.answer?.length) answers[it.linkId] = it.answer.map((a) => ({ ...a })); });
+  const walk = (items) => (items || []).forEach((it) => {
+    if (it.answer?.length) {
+      answers[it.linkId] = it.answer.map(({ item, ...a }) => a);
+      it.answer.forEach((a) => walk(a.item));
+    }
+    walk(it.item);
+  });
+  walk(qr.item);
   return answers;
 }
 
 // Human-readable answer, used in summaries and the free-text mock.
-export function displayAnswer(a, item) {
+// base = true: always in the form's own language (used for the free-text report that goes into the HIS)
+export function displayAnswer(a, item, { base = false } = {}) {
   const v = fhirValue(a, 'value');
   if (!v) return '';
   const unit = item && unitOf(item)?.display;
+  const de = base || i18n.lang === 'de';
   switch (v.type) {
-    case 'Boolean': return v.v ? 'ja' : 'nein';
-    case 'Coding': return v.v.display || v.v.code;
-    case 'Date': return new Date(v.v).toLocaleDateString('de-DE');
+    case 'Boolean': return v.v ? (de ? 'ja' : 'yes') : (de ? 'nein' : 'no');
+    case 'Coding': {
+      if (base) return v.v.display || v.v.code;
+      const opt = item?.answerOption?.find((o) => o.valueCoding && sameValue(o.valueCoding, v.v));
+      return opt ? codingDisplay(opt.valueCoding) : v.v.display || v.v.code;
+    }
+    case 'Date': return new Date(v.v).toLocaleDateString(de ? 'de-DE' : 'en-GB');
     case 'Integer':
-    case 'Decimal': return `${String(v.v).replace('.', ',')}${unit ? ' ' + unit : ''}`;
+    case 'Decimal': return `${de ? String(v.v).replace('.', ',') : v.v}${unit ? ' ' + unit : ''}`;
     default: return String(v.v);
   }
 }
@@ -148,10 +184,12 @@ export function caseSummary(q, answers) {
   const room = first(['location-room'])?.valueString;
   const stretcher = first(['location-stretcher'])?.valueString;
   return {
-    name: [family, given].filter(Boolean).join(', ') || 'Unnamed patient',
-    meta: [sex ? { male: 'm', female: 'w', other: 'd' }[sex] || sex : null, age != null ? `${age} J.` : null].filter(Boolean).join(' · '),
-    complaint: complaint ? displayAnswer(complaint) : '',
-    location: [room && `Room ${room}`, stretcher && `Stretcher ${stretcher}`].filter(Boolean).join(' · '),
+    name: [family, given].filter(Boolean).join(', '),
+    sex: sex || null, // administrative-gender code
+    age,
+    complaint: complaint ? displayAnswer(complaint, index.byId.get('chief-complaint')) : '',
+    room: room || null,
+    stretcher: stretcher || null,
   };
 }
 

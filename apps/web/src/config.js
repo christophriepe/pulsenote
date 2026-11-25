@@ -19,11 +19,10 @@ export const CONFIG = {
   // Phone vs. desktop layout breakpoint (px)
   desktopMinWidth: 900,
 
-  // Templates offered in "New case". Forms are data: a new template is a new Questionnaire JSON file.
+  // Templates offered in "New case" (labels in lib/i18n.js). Forms are data: a new template is a new Questionnaire JSON file.
   forms: [
-    { id: 'ed-surgery', label: 'Surgery', hint: 'Surgical patients', path: '../../packages/form-definitions/questionnaires/ed-surgery.json' },
-    { id: 'ed-general', label: 'General', hint: 'Internal medicine · Questionnaire not written yet' },
-    { id: 'ed-respiratory', label: 'Respiratory', hint: 'Infection / respiratory clinic · Questionnaire not written yet' },
-    { id: 'ward-round-visceral', label: 'Ward round (outlook)', hint: 'Same app beyond the ED', path: '../../packages/form-definitions/questionnaires/ward-round-visceral.json' },
+    { id: 'ed-general', main: true, path: '../../packages/form-definitions/questionnaires/ed-general.json' },
+    { id: 'ed-surgery', path: '../../packages/form-definitions/questionnaires/ed-surgery.json' },
+    { id: 'ed-respiratory' },
   ],
 };

@@ -1,5 +1,7 @@
 // Tiny DOM helpers. No framework, no build step.
 
+import { i18n, t } from './i18n.js';
+
 export function h(tag, props, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
@@ -43,11 +45,11 @@ export const clock = {
 };
 
 export function fmtTime(ms) {
-  return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ms).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 export function fmtDateTime(ms) {
-  return new Date(ms).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(ms).toLocaleString(i18n.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 export function fmtDuration(ms) {
@@ -74,17 +76,19 @@ export function toast(msg, kind = 'info') {
 }
 
 // Modal dialog (no window.confirm, which blocks and looks out of place on phones)
-export function confirmDialog({ title, body, confirm = 'OK', cancel = 'Cancel', danger = false }) {
+export function confirmDialog({ title, body, confirm = 'OK', cancel = t('cancel'), danger = false, quiet = false }) {
   return new Promise((resolve) => {
-    const close = (v) => { overlay.remove(); resolve(v); };
+    const close = (v) => { document.removeEventListener('keydown', onKey); overlay.remove(); resolve(v); };
     const overlay = h('div', { class: 'modal-overlay', onclick: (e) => { if (e.target === overlay) close(false); } },
       h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' },
         h('h2', null, title),
         h('div', { class: 'modal-body' }, body),
         h('div', { class: 'modal-actions' },
           cancel && h('button', { class: 'btn', onclick: () => close(false) }, cancel),
-          h('button', { class: `btn ${danger ? 'btn-danger' : 'btn-primary'}`, onclick: () => close(true) }, confirm))));
+          h('button', { class: `btn ${quiet ? '' : danger ? 'btn-danger' : 'btn-primary'}`, onclick: () => close(true) }, confirm))));
+    const onKey = (e) => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
     document.body.append(overlay);
-    overlay.querySelector('.btn-primary, .btn-danger').focus();
+    (overlay.querySelector('.modal-body input') || overlay.querySelector('.modal-actions .btn:last-child')).focus();
   });
 }

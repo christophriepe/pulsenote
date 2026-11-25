@@ -2,10 +2,12 @@
 // Used by the phone wizard (one top-level group per step) and the desktop editor (all groups on one page).
 
 import { h } from '../../lib/dom.js';
-import { EXT, extValue, itemControl, unitOf, isEnabled, indexQuestionnaire, sameValue } from '../../lib/questionnaire.js';
+import { t } from '../../lib/i18n.js';
+import { EXT, extValue, itemControl, unitOf, isEnabled, indexQuestionnaire, sameValue, itemText, codingDisplay, plainCoding, setFormLanguage } from '../../lib/questionnaire.js';
 
 export function createRenderer(questionnaire, answers, onChange, { readOnly = false } = {}) {
   const index = indexQuestionnaire(questionnaire);
+  setFormLanguage(questionnaire);
   const conditional = []; // { item, el } of items with enableWhen (or under one)
 
   function set(linkId, arr) {
@@ -27,8 +29,10 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
     if (item.type === 'display') return null;
     let el;
     if (item.type === 'group') {
-      el = h('section', { class: `group depth-${depth}` },
-        depth > 0 && h('h3', { class: 'group-title' }, item.text),
+      const kids = (item.item || []).filter((c) => c.type !== 'display');
+      const inline = kids.length > 1 && kids.every((c) => (c.type === 'integer' || c.type === 'decimal') && !isSlider(c));
+      el = h('section', { class: `group depth-${depth}${inline ? ' group-inline' : ''}` },
+        depth > 0 && h('h3', { class: 'group-title' }, itemText(item)),
         h('div', { class: 'group-body' }, renderItems(item.item, depth + 1)));
     } else {
       el = field(item);
@@ -42,10 +46,13 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
   function field(item) {
     const id = `f-${item.linkId}`;
     const control = makeControl(item, id);
-    return h('div', { class: `field type-${item.type}`, dataset: { linkId: item.linkId } },
-      h('label', { class: 'field-label', for: id },
-        item.text,
-        item.required && h('span', { class: 'req', title: 'Required' }, ' *')),
+    // Button groups (yes/no, chips) are labelled via aria-labelledby, since <label for> only works on form controls.
+    const group = control.matches('[role]') ? control : control.querySelector('[role]');
+    group?.setAttribute('aria-labelledby', `l-${item.linkId}`);
+    return h('div', { class: `field type-${item.type}${isSlider(item) ? ' is-slider' : ''}`, dataset: { linkId: item.linkId } },
+      h('label', { class: 'field-label', for: group ? null : id, id: `l-${item.linkId}` },
+        itemText(item),
+        item.required && h('span', { class: 'req', title: t('form.required') }, ' *')),
       control);
   }
 
@@ -75,7 +82,7 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
       const v = answers[item.linkId]?.[0]?.valueBoolean;
       wrap.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(String(v) === b.dataset.v)));
     };
-    for (const [label, v] of [['Ja', true], ['Nein', false]]) {
+    for (const [label, v] of [[t('form.yes'), true], [t('form.no'), false]]) {
       wrap.append(h('button', { type: 'button', class: 'seg-btn', dataset: { v: String(v) }, disabled: readOnly,
         onclick: () => {
           const now = answers[item.linkId]?.[0]?.valueBoolean;
@@ -90,12 +97,13 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
   // Choice: chips (single or multi). Long lists fall back to a <select>. open-choice adds a free-text "other".
   function choiceControl(item, id, cur) {
     const opts = (item.answerOption || []).map((o) => ({
-      value: o.valueCoding || o.valueString,
+      value: o.valueCoding ? plainCoding(o.valueCoding) : o.valueString,
       key: o.valueCoding ? 'valueCoding' : 'valueString',
-      label: o.valueCoding?.display || o.valueString,
+      label: o.valueCoding ? codingDisplay(o.valueCoding) : o.valueString,
       exclusive: !!extValue(o, EXT.optionExclusive),
     }));
     const multi = !!item.repeats;
+    if (!multi && isSlider(item) && opts.length > 1) return ordinalSlider(item, id, opts);
     const coded = () => (answers[item.linkId] || []).filter((a) => !(item.type === 'open-choice' && a.valueString != null && !opts.some((o) => o.value === a.valueString)));
     const other = () => (answers[item.linkId] || []).find((a) => item.type === 'open-choice' && a.valueString != null && !opts.some((o) => o.value === a.valueString));
 
@@ -125,7 +133,7 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
     paint();
 
     if (item.type === 'open-choice') {
-      wrap.append(h('input', { type: 'text', class: 'input chip-other', placeholder: 'Andere …', value: other()?.valueString || '', disabled: readOnly,
+      wrap.append(h('input', { type: 'text', class: 'input chip-other', placeholder: t('form.other'), value: other()?.valueString || '', disabled: readOnly,
         oninput: (e) => {
           const txt = e.target.value.trim();
           const base = multi ? coded() : txt ? [] : coded();
@@ -150,17 +158,35 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
         const bad = raw && (isNaN(n) || !/^-?\d*([.]\d*)?$/.test(raw));
         const out = !bad && raw && ((min != null && n < min) || (max != null && n > max));
         warn.hidden = !(bad || out);
-        warn.textContent = bad ? 'Not a number' : `Outside the plausible range (${min}–${max})`;
+        warn.textContent = bad ? t('form.nan') : t('form.range', { min, max });
         input.classList.toggle('invalid', !!(bad || out));
         set(item.linkId, raw && !bad ? [{ [key]: n }] : []);
       } });
     return h('div', null, h('div', { class: 'num' }, input, unit && h('span', { class: 'num-unit' }, unit.display || unit.code)), warn);
   }
 
+  // Ordered single choice (e.g. care level 0–5) as a slider over its answer options.
+  // Each stop stores the option's coding; ticks show the option's trailing number (or "–").
+  function ordinalSlider(item, id, opts) {
+    const idx = () => opts.findIndex((o) => (answers[item.linkId] || []).some((a) => sameValue(a[o.key], o.value)));
+    const out = h('output', { class: 'slider-choice' });
+    const paint = () => { const i = idx(); out.textContent = i < 0 ? '–' : opts[i].label; range.classList.toggle('untouched', i < 0); };
+    const range = h('input', { id, type: 'range', min: 0, max: opts.length - 1, step: 1, value: Math.max(0, idx()), disabled: readOnly,
+      'aria-valuetext': idx() < 0 ? '' : opts[idx()].label,
+      oninput: (e) => { const o = opts[+e.target.value]; set(item.linkId, [{ [o.key]: o.value }]); range.setAttribute('aria-valuetext', o.label); paint(); } });
+    const tick = (o, i) => (o.label.match(/(\d+)\s*$/) || [])[1] || (i === 0 ? '0' : '·'); // e.g. "No care level" → 0
+    paint();
+    return h('div', { class: 'slider slider-ordinal' },
+      h('div', { class: 'slider-row' },
+        h('div', { class: 'slider-track' }, range, h('div', { class: 'slider-ticks', 'aria-hidden': 'true' }, opts.map((o, i) => h('span', null, tick(o, i))))),
+        !readOnly && h('button', { type: 'button', class: 'link-btn', onclick: () => { range.value = 0; set(item.linkId, []); paint(); } }, t('form.clear'))),
+      out);
+  }
+
   function sliderControl(item, id, cur) {
     const min = extValue(item, EXT.min) ?? 0, max = extValue(item, EXT.max) ?? 10;
     const step = extValue(item, EXT.sliderStep) ?? 1;
-    const labelOf = (code) => (item.item || []).find((c) => c.type === 'display' && itemControl(c) === code)?.text;
+    const labelOf = (code) => { const d = (item.item || []).find((c) => c.type === 'display' && itemControl(c) === code); return d && itemText(d); };
     const key = item.type === 'integer' ? 'valueInteger' : 'valueDecimal';
     const v = cur[0]?.[key];
     const out = h('output', { class: 'slider-value' }, v ?? '–');
@@ -169,7 +195,7 @@ export function createRenderer(questionnaire, answers, onChange, { readOnly = fa
       oninput: (e) => { range.classList.remove('untouched'); out.textContent = e.target.value; set(item.linkId, [{ [key]: Number(e.target.value) }]); } });
     return h('div', { class: 'slider' },
       h('div', { class: 'slider-row' }, range, out,
-        !readOnly && h('button', { type: 'button', class: 'link-btn', onclick: () => { range.classList.add('untouched'); out.textContent = '–'; set(item.linkId, []); } }, 'Clear')),
+        !readOnly && h('button', { type: 'button', class: 'link-btn', onclick: () => { range.classList.add('untouched'); out.textContent = '–'; set(item.linkId, []); } }, t('form.clear'))),
       h('div', { class: 'slider-labels' }, h('span', null, `${min} ${labelOf('lower') || ''}`), h('span', null, `${max} ${labelOf('upper') || ''}`)));
   }
 

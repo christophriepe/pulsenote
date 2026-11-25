@@ -9,12 +9,11 @@ import { CONFIG } from '../config.js';
 import { clock } from '../lib/dom.js';
 
 export const DEMO_USERS = [
-  { id: 'u-weber', username: 'weber', name: 'Dr. Lena Weber', role: 'physician', title: 'Assistenzärztin' },
-  { id: 'u-klein', username: 'klein', name: 'Dr. Jonas Klein', role: 'physician', title: 'Assistenzarzt' },
-  { id: 'u-schmidt', username: 'schmidt', name: 'Dr. Miriam Schmidt', role: 'attending', title: 'Oberärztin' },
+  { id: 'u-weber', username: 'weber', email: 'lena.weber@klinikum.example', name: 'Dr. Lena Weber', role: 'physician', title: 'Assistenzärztin' },
+  { id: 'u-klein', username: 'klein', email: 'jonas.klein@klinikum.example', name: 'Dr. Jonas Klein', role: 'physician', title: 'Assistenzarzt' },
+  { id: 'u-schmidt', username: 'schmidt', email: 'miriam.schmidt@klinikum.example', name: 'Dr. Miriam Schmidt', role: 'attending', title: 'Oberärztin' },
 ];
 
-export const ROLE_LABEL = { physician: 'Physician', attending: 'Attending' };
 
 let current = null;
 
@@ -26,8 +25,9 @@ export const session = {
 
   async signIn(username, password) {
     await new Promise((r) => setTimeout(r, 250));
-    const user = DEMO_USERS.find((u) => u.username === username.trim().toLowerCase());
-    if (!user || !password) throw new Error('Unknown user or wrong password');
+    const login = username.trim().toLowerCase();
+    const user = DEMO_USERS.find((u) => u.username === login || u.email === login);
+    if (!user || !password) throw new Error('login.error');
     current = { user, token: `demo-token-${user.id}`, expiresAt: clock.now() + CONFIG.sessionMs };
     return user;
   },

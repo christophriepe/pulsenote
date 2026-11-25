@@ -10,7 +10,7 @@ import { CONFIG } from '../config.js';
 import { clock, uuid } from '../lib/dom.js';
 import { DEMO_USERS } from '../auth/session.js';
 import { loadForm, formForCanonical } from '../features/case-form/forms.js';
-import { walkItems, displayAnswer, indexQuestionnaire, buildResponse, extValue, EXT, unitOf } from '../lib/questionnaire.js';
+import { walkItems, displayAnswer, indexQuestionnaire, buildResponse, extValue, EXT, unitOf, answersFromResponse, plainCoding } from '../lib/questionnaire.js';
 
 const STATUS_SYSTEM = 'https://pulsenote.example/CodeSystem/case-status';
 const TRANSFER_EXT = 'https://pulsenote.example/StructureDefinition/his-transferred';
@@ -104,7 +104,7 @@ async function freeText(qr) {
   const { questionnaire: q } = await formForCanonical(qr.questionnaire);
   const index = indexQuestionnaire(q);
   const lines = [q.title, `Erstellt ${new Date(qr.authored).toLocaleString('de-DE')} von ${qr.author?.display || '–'}`];
-  const ans = (it) => it.answer.map((a) => displayAnswer(a, index.byId.get(it.linkId))).join(', ');
+  const ans = (it) => it.answer.map((a) => displayAnswer(a, index.byId.get(it.linkId), { base: true })).join(', ');
   // Top-level groups become headings, nested groups sub-headings, questions "Label: answer".
   const walk = (items, depth, parentText) => {
     for (const it of items || []) {
@@ -115,6 +115,7 @@ async function freeText(qr) {
         else lines.push(`${pad}${it.text}:`);
       }
       if (it.item) walk(it.item, depth + 1, it.text);
+      (it.answer || []).forEach((a) => a.item && walk(a.item, depth + 1, it.text));
     }
   };
   walk(qr.item, 0, null);
@@ -126,8 +127,7 @@ async function freeText(qr) {
 async function extract(qr, format) {
   const { questionnaire: q } = await formForCanonical(qr.questionnaire);
   const index = indexQuestionnaire(q);
-  const answers = {};
-  walkItems(qr.item, (it) => { if (it.answer) answers[it.linkId] = it.answer; });
+  const answers = answersFromResponse(qr);
   const def = (suffix) => [...index.byId.values()].find((it) => it.definition?.endsWith(suffix));
   const a0 = (it) => it && answers[it.linkId]?.[0];
   const patientId = uuid(), encId = uuid();
@@ -152,7 +152,10 @@ async function extract(qr, format) {
       effectiveDateTime: qr.authored,
       ...(value != null ? { valueQuantity: { value, unit: unit?.display, system: unit?.system, code: unit?.code } } : {}) });
   }
-  const resources = format === 'qr' ? [qr] : [patient, encounter, ...obs, qr];
+  // Export only the clinical content: PulseNote's own bookkeeping (workflow tag, version info,
+  // HIS-transfer marker) stays on the server and is not part of the exported resource.
+  const { meta, extension, ...exportQr } = qr;
+  const resources = format === 'qr' ? [exportQr] : [patient, encounter, ...obs, exportQr];
   return { resourceType: 'Bundle', id: uuid(), type: 'collection', timestamp: new Date(clock.now()).toISOString(),
     entry: resources.map((r) => ({ fullUrl: `urn:uuid:${r.id}`, resource: r })) };
 }
@@ -164,7 +167,7 @@ async function seed() {
   const index = indexQuestionnaire(q);
   const opt = (linkId, display) => {
     const o = index.byId.get(linkId).answerOption.find((x) => (x.valueCoding?.display || x.valueString) === display);
-    return o.valueCoding ? { valueCoding: o.valueCoding } : { valueString: o.valueString };
+    return o.valueCoding ? { valueCoding: plainCoding(o.valueCoding) } : { valueString: o.valueString };
   };
   const S = (v) => [{ valueString: v }], B = (v) => [{ valueBoolean: v }], I = (v) => [{ valueInteger: v }], D = (v) => [{ valueDecimal: v }];
   const base = (sex, given, family, birth, room, stretcher) => ({
@@ -189,11 +192,31 @@ async function seed() {
       'chief-complaint': S('Kolikartige Flankenschmerzen links'), pain: B(true), 'pain-nrs': I(8), nausea: B(true), vomiting: B(true),
       'micturition': [opt('micturition', 'Hämaturie')], 'bp-systolic': I(148), 'bp-diastolic': I(92), 'heart-rate': I(104) }],
   ];
-  for (const [authorId, minsAgo, status, answers] of cases) {
+  // ED general (main template)
+  const g = await loadForm('ed-general');
+  const gIndex = indexQuestionnaire(g);
+  const gopt = (linkId, display) => ({ valueCoding: plainCoding(gIndex.byId.get(linkId).answerOption.find((x) => x.valueCoding.display === display).valueCoding) });
+  const generalCases = [
+    ['u-weber', 60, 'received', { 'patient-sex': [gopt('patient-sex', 'Männlich')], 'patient-given-name': S('Peter'), 'patient-family-name': S('Probemann'),
+      'patient-birth-date': [{ valueDate: '1962-09-30' }], 'location-room': S('1'), 'location-stretcher': S('3'),
+      'chief-complaint': S('Retrosternaler Druck seit 1 h, Ausstrahlung in den linken Arm'), pain: B(true), 'pain-nrs': I(6),
+      'chest-pain': B(true), dyspnea: B(true), palpitations: B(false), syncope: B(false), nausea: B(true),
+      'long-term-medication': B(true), 'long-term-medication-details': S('Metoprolol 47,5 mg, Atorvastatin 40 mg'),
+      'bp-systolic': I(158), 'bp-diastolic': I(94), 'heart-rate': I(92), 'oxygen-saturation': I(95), 'respiratory-rate': I(20),
+      'heart-rhythm': [gopt('heart-rhythm', 'Rhythmisch')], 'breath-sounds': [gopt('breath-sounds', 'Vesikulär')] }],
+    ['u-klein', 130, 'received', { 'patient-sex': [gopt('patient-sex', 'Weiblich')], 'patient-given-name': S('Greta'), 'patient-family-name': S('Fiktiv'),
+      'patient-birth-date': [{ valueDate: '1939-05-08' }], 'location-room': S('6'),
+      'chief-complaint': S('Zunehmende Luftnot seit 3 Tagen, Beinödeme'), dyspnea: B(true), cough: B(true), fever: B(false),
+      'bp-systolic': I(142), 'bp-diastolic': I(80), 'heart-rate': I(108), 'oxygen-saturation': I(89), 'body-temperature': D(36.9),
+      'heart-rhythm': [gopt('heart-rhythm', 'Arrhythmisch')], 'breath-sounds': [gopt('breath-sounds', 'Rasselgeräusche')],
+      edema: B(true), 'edema-location': S('Beidseits prätibial') }],
+  ];
+  const all = [...cases.map((c) => [q, ...c]), ...generalCases.map((c) => [g, ...c])];
+  for (const [form, authorId, minsAgo, status, answers] of all) {
     const author = DEMO_USERS.find((u) => u.id === authorId);
     const id = uuid();
     const t = clock.now() - minsAgo * 60000;
-    const qr = buildResponse(q, answers, { id, status: 'completed', authored: t, author });
+    const qr = buildResponse(form, answers, { id, status: 'completed', authored: t, author });
     qr.meta = { lastUpdated: new Date(t).toISOString(), versionId: '1', tag: [{ system: STATUS_SYSTEM, code: status }] };
     if (status === 'transferred') qr.extension = [{ url: TRANSFER_EXT, valueDateTime: new Date(t + 3600000).toISOString() }];
     db.cases.set(id, qr);

@@ -17,9 +17,12 @@ REPO = WEB.parent.parent
 # Dependency order
 MODULES = [
     "src/config.js",
+    "src/lib/i18n.js",
     "src/lib/dom.js",
     "src/lib/questionnaire.js",
     "src/auth/session.js",
+    "src/components/lang-button.js",
+    "src/components/case-summary.js",
     "src/features/case-form/forms.js",
     "src/api/mock-server.js",
     "src/api/client.js",
@@ -32,7 +35,7 @@ MODULES = [
     "src/auth/login.js",
     "src/main.js",
 ]
-FORMS = ["ed-surgery", "ward-round-visceral"]
+FORMS = ["ed-general", "ed-surgery"]
 
 IMPORT_RE = re.compile(r"^import\s.*?from\s+['\"][^'\"]+['\"];\s*$", re.M)
 
