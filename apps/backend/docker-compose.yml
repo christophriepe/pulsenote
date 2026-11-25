@@ -9,10 +9,8 @@ services:
     ports:
       - "${APP_PORT:-8014}:8000"
     volumes:
-      - case-data:/data
+      # Cases are stored on the host in apps/backend/data (ignored by git)
+      - ./data:/data
     restart: unless-stopped
-    # Default: self-contained image (app/ and packages/form-definitions are copied in).
+    # Default: self-contained image (app/, apps/web and packages/form-definitions are copied in).
     # For live editing add docker-compose.dev.yml (see README).
-
-volumes:
-  case-data:

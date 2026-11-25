@@ -1,5 +1,5 @@
 # Build context is the repository root (see docker-compose.yml), because the image
-# also needs packages/form-definitions.
+# also needs packages/form-definitions and apps/web.
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /bin/
@@ -13,6 +13,7 @@ ENV UV_PYTHON_PREFERENCE=only-system \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
     FORM_DEFINITIONS_DIR=/app/form-definitions \
+    WEB_DIR=/app/web \
     DATA_DIR=/data
 
 COPY apps/backend/pyproject.toml apps/backend/uv.lock ./
@@ -21,6 +22,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY apps/backend/app ./app
 COPY packages/form-definitions ./form-definitions
+COPY apps/web/index.html ./web/index.html
+COPY apps/web/src ./web/src
+COPY apps/web/styles ./web/styles
 
 RUN mkdir -p /data
 VOLUME /data

@@ -4,4 +4,7 @@
 !apps/backend/uv.lock
 !apps/backend/app
 !packages/form-definitions
+!apps/web/index.html
+!apps/web/src
+!apps/web/styles
 **/__pycache__

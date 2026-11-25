@@ -14,6 +14,10 @@ FORM_DEFINITIONS_DIR = Path(
 QUESTIONNAIRE_DIR = FORM_DEFINITIONS_DIR / "questionnaires"
 PREVIEW_FILE = FORM_DEFINITIONS_DIR / "preview.html"
 
+# apps/web: the web app (index.html, src/, styles/), served at /.
+# In Docker it is copied to /app/web (see Dockerfile).
+WEB_DIR = Path(os.environ.get("WEB_DIR", REPO_DIR / "apps" / "web")).resolve()
+
 # One JSON file per case. In Docker this is a named volume mounted at /data.
 DATA_DIR = Path(os.environ.get("DATA_DIR", BACKEND_DIR / "data")).resolve()
 CASES_DIR = DATA_DIR / "cases"

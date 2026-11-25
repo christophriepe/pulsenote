@@ -64,8 +64,19 @@ def diagnostics(response):
     return " | ".join(i["diagnostics"] for i in response.json()["issue"])
 
 
-def test_preview_served(client):
+def test_web_app_served(client):
     r = client.get("/")
+    assert r.status_code == 200
+    assert '<script type="module" src="src/main.js">' in r.text
+    assert client.get("/src/main.js").status_code == 200
+    assert client.get("/styles/app.css").status_code == 200
+    r = client.get("/packages/form-definitions/questionnaires/ed-surgery.json")
+    assert r.json()["id"] == "ed-surgery"
+    assert client.get("/README.md").status_code == 404
+
+
+def test_preview_served(client):
+    r = client.get("/preview")
     assert r.status_code == 200
     assert "QuestionnaireResponse" in r.text
 
